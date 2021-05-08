@@ -19,3 +19,6 @@
 [submodule "modules/libcanard"]
 	path = modules/libcanard
 	url = git://github.com/ArduPilot/libcanard.git
+[submodule "modules/pico-sdk"]
+	path = modules/pico-sdk
+	url = https://github.com/zsigmondszilveszter/pico-sdk.git
