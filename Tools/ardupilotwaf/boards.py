@@ -786,6 +786,39 @@ class linux(Board):
             # Avoid infinite recursion
             bld.options.upload = False
 
+class rpi_pico(Board):
+    toolchain = 'arm-none-eabi'
+
+    def configure(self, cfg):
+        cfg.env.TOOLCHAIN = cfg.options.toolchain or self.toolchain
+        cfg.load('pico')
+        super(rpi_pico, self).configure(cfg)
+
+        cfg.env.DEFINES += cfg.env.PICO_CXX_DEFINES
+        cfg.env.CFLAGS = cfg.env.PICO_C_FLAGS + cfg.env.CFLAGS
+        cfg.env.CXXFLAGS = cfg.env.PICO_CXX_FLAGS + cfg.env.CXXFLAGS
+
+
+    def configure_env(self, cfg, env):
+        super(rpi_pico, self).configure_env(cfg, env)
+
+        env.DEFINES.update(
+            CONFIG_HAL_BOARD = 'HAL_BOARD_RPIPICO',
+            HAVE_STD_NULLPTR_T = 0,
+            USE_LIBC_REALLOC = 0,
+        )
+
+        env.AP_LIBRARIES += [
+            'AP_HAL_RpiPico',
+        ]
+
+
+    def build(self, bld):
+        super(rpi_pico, self).build(bld)
+        # Avoid infinite recursion
+        bld.options.upload = False
+
+
 class navigator(linux):
     toolchain = 'arm-linux-gnueabihf'
 

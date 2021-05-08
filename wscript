@@ -67,6 +67,7 @@ def options(opt):
     opt.load('compiler_cxx compiler_c waf_unit_test python')
     opt.load('ardupilotwaf')
     opt.load('build_summary')
+    opt.load('pico')
 
     g = opt.ap_groups['configure']
 
