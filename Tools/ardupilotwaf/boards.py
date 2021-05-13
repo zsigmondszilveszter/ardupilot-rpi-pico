@@ -794,9 +794,18 @@ class rpi_pico(Board):
         cfg.load('pico')
         super(rpi_pico, self).configure(cfg)
 
+        # remove the "-std=gnu++11" flag from the origianl CXXFLAGS,
+        # because the Pico SDK adds the "-std=gnu++17" flag
+        cfg.env.CXXFLAGS.remove("-std=gnu++11")
+
+        # remove escaping characters, because it causes problems/warnings somehwere down in the building process,
+        cfg.env.PICO_CXX_DEFINES = [d.replace('\\"', '"') for d in cfg.env.PICO_CXX_DEFINES]
+
+        # add the Pico SDK flags to Ardupilot flags
         cfg.env.DEFINES += cfg.env.PICO_CXX_DEFINES
         cfg.env.CFLAGS = cfg.env.PICO_C_FLAGS + cfg.env.CFLAGS
         cfg.env.CXXFLAGS = cfg.env.PICO_CXX_FLAGS + cfg.env.CXXFLAGS
+        cfg.env.INCLUDES += cfg.env.PICO_CXX_INCLUDES
 
 
     def configure_env(self, cfg, env):

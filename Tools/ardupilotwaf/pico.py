@@ -42,6 +42,10 @@ def readFlags(conf):
             if len(linecomponents) > 1:
                 env_name = linecomponents[0]
                 env_values = linecomponents[1].split(" ")
+                if any(env_name in s for s in ["ASM_DEFINES", "C_DEFINES", "CXX_DEFINES"]):
+                    env_values = [e.replace("-D", "") for e in env_values]
+                if any(env_name in s for s in ["ASM_INCLUDES", "C_INCLUDES", "CXX_INCLUDES"]):
+                    env_values = [e.replace("-I", "") for e in env_values]
                 conf.env["PICO_"+env_name] = env_values
 
 @conf
