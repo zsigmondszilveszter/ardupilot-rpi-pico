@@ -786,13 +786,24 @@ class linux(Board):
             # Avoid infinite recursion
             bld.options.upload = False
 
+
 class rpi_pico(Board):
     toolchain = 'arm-none-eabi'
 
     def configure(self, cfg):
         cfg.env.TOOLCHAIN = cfg.options.toolchain or self.toolchain
         cfg.load('pico')
+        cfg.env.DISABLE_SCRIPTING = True
+        cfg.options.disable_tests = True
+
         super(rpi_pico, self).configure(cfg)
+
+        # load the second part of pico configuration
+        from waflib.Context import load_tool
+        module = load_tool('pico')
+        fun = getattr(module, 'configure2', None)
+        if fun:
+            fun(cfg)
 
         # remove the "-std=gnu++11" flag from the origianl CXXFLAGS,
         # because the Pico SDK adds the "-std=gnu++17" flag
@@ -806,6 +817,11 @@ class rpi_pico(Board):
         cfg.env.CFLAGS = cfg.env.PICO_C_FLAGS + cfg.env.CFLAGS
         cfg.env.CXXFLAGS = cfg.env.PICO_CXX_FLAGS + cfg.env.CXXFLAGS
         cfg.env.INCLUDES += cfg.env.PICO_CXX_INCLUDES
+        # there is implicitly the -Werror=format flag specified by the Board configure method
+        # but my gcc-arm-none-eabi defines uint32_t as unsigned long int, 
+        # which causes compilation errors with the this flag,
+        # so temporary I turn off the error=format flag, until I find a better solution
+        cfg.env.CXXFLAGS += ['-Wno-error=format']
 
 
     def configure_env(self, cfg, env):
@@ -823,6 +839,11 @@ class rpi_pico(Board):
 
 
     def build(self, bld):
+        bld.env.LINKFLAGS += bld.env.PICO_LINKFLAGS
+        bld.load('pico')
+        # TODO, temporary hack: add the Pico second stage bootloader to end of the link command
+        bld.env.LDFLAGS += [bld.env.PICO_BOOT_STAGE2]
+
         super(rpi_pico, self).build(bld)
         # Avoid infinite recursion
         bld.options.upload = False

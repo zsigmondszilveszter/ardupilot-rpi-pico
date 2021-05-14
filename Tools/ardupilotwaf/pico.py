@@ -4,7 +4,7 @@
 from waflib.Configure import conf
 from waflib.Utils import check_dir
 import subprocess
-
+import re
 
 
 def options(opt):
@@ -29,7 +29,7 @@ def setPicoToolchainPath(conf):
 @conf
 def run_external_cmake_config(conf):
     print('Execute the external Cmake configuration command')
-    st = 'cd ' + conf.env.CMAKE_BUILD_DIR_ABS_PATH + ' && env "PICO_SDK_PATH=' + conf.env.PICO_SDK_PATH + '" "PICO_TOOLCHAIN_PATH=' + conf.env.PICO_TOOLCHAIN_PATH +'" ' + conf.env.CMAKE[0] + ' ../../Tools/pico_cmake'
+    st = 'cd ' + conf.env.CMAKE_BUILD_DIR_ABS_PATH + ' && env "PICO_SDK_PATH=' + conf.env.PICO_SDK_PATH + '" "PICO_TOOLCHAIN_PATH=' + conf.env.PICO_TOOLCHAIN_PATH +'" ' + conf.env.CMAKE[0] + ' ' + conf.env.PICO_SDK_CMAKE_CONFIG
     subprocess.run(st, shell=True)
     conf.msg("Configuring external CMake ", "Done")
 
@@ -81,7 +81,6 @@ def readLinkingStuff(conf):
             # we process only one row, se we break the loop
             break
 
-
 def configure(conf):
     conf.env.CMAKE_MAIN_APP_NAME = "empty"
     conf.env.TARGET_APP_NAME = "ardupilot_pico"
@@ -90,10 +89,15 @@ def configure(conf):
     conf.setPicoToolchainPath()
     # add the pico tool chain path to system PATH
     conf.environ["PATH"] = conf.env.PICO_TOOLCHAIN_PATH + "/bin:" + conf.environ.get('PATH', '')
+
+
+def configure2(conf):
     # pico_cmake working directory
-    conf.env.CMAKE_BUILD_DIR = 'cmake_build'
-    conf.env.CMAKE_BUILD_DIR_ABS_PATH = conf.bldnode.abspath() + '/' + conf.env.CMAKE_BUILD_DIR
+    conf.env.CMAKE_BUILD_DIR = 'modules/pico-sdk'
+    conf.env.CMAKE_BUILD_DIR_ABS_PATH = conf.bldnode.make_node(conf.variant+'/'+conf.env.CMAKE_BUILD_DIR).abspath()
     check_dir(conf.env.CMAKE_BUILD_DIR_ABS_PATH)
+    # pico SDK cmake config files location
+    conf.env.PICO_SDK_CMAKE_CONFIG = conf.srcnode.abspath() + "/Tools/pico_cmake"
     
     # step 2
     conf.find_program("cmake", var="CMAKE") # cmake is required
@@ -107,4 +111,34 @@ def configure(conf):
     # step 4
     conf.readLinkingStuff()
 
-    
+
+
+def build(bld):
+    # boot_stage2
+    bld.env.PICO_BOOT_STAGE2 = bld.env.CMAKE_BUILD_DIR+'/pico-sdk/src/rp2_common/boot_stage2/bs2_default_padded_checksummed.S'
+
+    # build pico's boot_stage2
+    bld(rule="cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} bs2_default_padded_checksummed_asm", 
+        target=bld.env.PICO_BOOT_STAGE2, 
+        group='dynamic_sources',
+        source="Tools/pico_cmake/CMakeLists.txt"
+    )
+
+    # compile the rest of the pico SDK source files
+    for bld_target in bld.env.PICO_LINK_OBJS:
+        make_target = bld_target[len(bld.env.CMAKE_BUILD_DIR+"/CMakeFiles/"+bld.env.CMAKE_MAIN_APP_NAME+".dir/"):]
+        make_target = re.sub('\.(c|cpp|S)\.obj$', '.obj', make_target)
+        bld(rule="cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} "+make_target, 
+            target=bld_target, 
+            group='dynamic_sources',
+            source="Tools/pico_cmake/CMakeLists.txt")
+
+    # try to build a static library from Pico SDK objects
+    bld(
+        name = "Raspberry Pi Pico SDK library",
+        features = "cxx cxxstlib",
+        group='dynamic_sources',
+        source=bld.env.PICO_LINK_OBJS,
+        target='PicoSDK'
+    )
+    bld.env.LIB += ["PicoSDK"]
