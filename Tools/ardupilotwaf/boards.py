@@ -839,11 +839,8 @@ class rpi_pico(Board):
 
 
     def build(self, bld):
-        bld.env.LINKFLAGS += bld.env.PICO_LINKFLAGS
         bld.load('pico')
-        # TODO, temporary hack: add the Pico second stage bootloader to end of the link command
-        bld.env.LDFLAGS += [bld.env.PICO_BOOT_STAGE2]
-
+        
         super(rpi_pico, self).build(bld)
         # Avoid infinite recursion
         bld.options.upload = False

@@ -83,7 +83,7 @@ def readLinkingStuff(conf):
 
 def configure(conf):
     conf.env.CMAKE_MAIN_APP_NAME = "empty"
-    conf.env.TARGET_APP_NAME = "ardupilot_pico"
+    conf.env.TARGET_APP_NAME = "ardupilot-rpi-pico"
     # step 1
     conf.setPicoSDKPath()
     conf.setPicoToolchainPath()
@@ -114,31 +114,44 @@ def configure2(conf):
 
 
 def build(bld):
-    # boot_stage2
+    # add PICO linking flags to waf/ardupilot linking flags
+    bld.env.LINKFLAGS += bld.env.PICO_LINKFLAGS
+
+    # define boot_stage2
     bld.env.PICO_BOOT_STAGE2 = bld.env.CMAKE_BUILD_DIR+'/pico-sdk/src/rp2_common/boot_stage2/bs2_default_padded_checksummed.S'
 
     # build pico's boot_stage2
-    bld(rule="cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} bs2_default_padded_checksummed_asm", 
-        target=bld.env.PICO_BOOT_STAGE2, 
-        group='dynamic_sources',
-        source="Tools/pico_cmake/CMakeLists.txt"
+    bld(
+        rule = "cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} bs2_default_padded_checksummed_asm", 
+        target = bld.env.PICO_BOOT_STAGE2, 
+        group = 'dynamic_sources',
+        source = "Tools/pico_cmake/CMakeLists.txt"
     )
 
     # compile the rest of the pico SDK source files
     for bld_target in bld.env.PICO_LINK_OBJS:
         make_target = bld_target[len(bld.env.CMAKE_BUILD_DIR+"/CMakeFiles/"+bld.env.CMAKE_MAIN_APP_NAME+".dir/"):]
         make_target = re.sub('\.(c|cpp|S)\.obj$', '.obj', make_target)
-        bld(rule="cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} "+make_target, 
-            target=bld_target, 
-            group='dynamic_sources',
-            source="Tools/pico_cmake/CMakeLists.txt")
+        bld(
+            rule = "cd ${CMAKE_BUILD_DIR_ABS_PATH} && ${MAKE} "+make_target, 
+            target = bld_target, 
+            group = 'dynamic_sources',
+            source = "Tools/pico_cmake/CMakeLists.txt"
+        )
 
     # try to build a static library from Pico SDK objects
     bld(
-        name = "Raspberry Pi Pico SDK library",
-        features = "cxx cxxstlib",
-        group='dynamic_sources',
-        source=bld.env.PICO_LINK_OBJS,
-        target='PicoSDK'
+        name = "Pico_sdk_lib",
+        rule = "${AR} rcs ${TGT} ${SRC}",
+        group = 'dynamic_sources',
+        source = bld.env.PICO_LINK_OBJS,
+        target = 'lib/libPicoSDK.a'
     )
-    bld.env.LIB += ["PicoSDK"]
+    #
+    bld.env.LDFLAGS += [
+        "-Wl,-Bstatic",
+        "-Wl,-whole-archive",
+        "-lPicoSDK",
+        "-Wl,-no-whole-archive",
+        bld.env.PICO_BOOT_STAGE2
+    ]
