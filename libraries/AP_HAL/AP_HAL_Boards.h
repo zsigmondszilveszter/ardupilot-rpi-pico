@@ -13,6 +13,7 @@
 #define HAL_BOARD_VRBRAIN  8
 #define HAL_BOARD_CHIBIOS  10
 #define HAL_BOARD_F4LIGHT  11 // reserved
+#define HAL_BOARD_RPIPICO  12
 #define HAL_BOARD_EMPTY    99
 
 /* Default board subtype is -1 */
@@ -129,6 +130,8 @@
     #include <AP_HAL/board/vrbrain.h>
 #elif CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
 	#include <AP_HAL/board/chibios.h>
+#elif CONFIG_HAL_BOARD == HAL_BOARD_RPIPICO
+	#include <AP_HAL/board/rpipico.h>
 #else
 #error "Unknown CONFIG_HAL_BOARD type"
 #endif

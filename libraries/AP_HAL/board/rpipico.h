@@ -1,0 +1,31 @@
+#pragma once
+
+// Rpi Pico
+#define PICO_UART_DEFAULT_CRLF 1
+
+#define UART0_TX_GPIO_PIN 0
+#define UART0_RX_GPIO_PIN 1
+#define UART1_TX_GPIO_PIN 4
+#define UART1_RX_GPIO_PIN 5
+
+// 
+#define HAL_BOARD_NAME "Raspberry Pi Pico"
+#define HAL_CPU_CLASS HAL_CPU_CLASS_150
+#define HAL_MEM_CLASS HAL_MEM_CLASS_192
+#define HAL_STORAGE_SIZE            2048
+#define HAL_STORAGE_SIZE_AVAILABLE  HAL_STORAGE_SIZE
+#define HAL_INS_DEFAULT HAL_INS_HIL
+#define HAL_BARO_DEFAULT HAL_BARO_HIL
+#define HAL_COMPASS_DEFAULT HAL_COMPASS_HIL
+#define CONFIG_HAL_BOARD_SUBTYPE HAL_BOARD_SUBTYPE_NONE
+
+#define HAL_HAVE_BOARD_VOLTAGE 1
+#define HAL_HAVE_SERVO_VOLTAGE 0
+#define HAL_HAVE_SAFETY_SWITCH 0
+
+#ifndef HAL_NUM_CAN_IFACES
+#define HAL_NUM_CAN_IFACES 0
+#endif
+
+#include <AP_HAL_RpiPico/Semaphores.h>
+#define HAL_Semaphore RpiPico::Semaphore
