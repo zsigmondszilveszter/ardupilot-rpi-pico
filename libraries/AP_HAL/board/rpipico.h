@@ -1,12 +1,7 @@
 #pragma once
 
 // Rpi Pico
-#define PICO_UART_DEFAULT_CRLF 1
-
-#define UART0_TX_GPIO_PIN 0
-#define UART0_RX_GPIO_PIN 1
-#define UART1_TX_GPIO_PIN 4
-#define UART1_RX_GPIO_PIN 5
+#define PICO_UART_DEFAULT_CRLF 0
 
 // 
 #define HAL_BOARD_NAME "Raspberry Pi Pico"

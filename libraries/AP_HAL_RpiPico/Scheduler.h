@@ -2,6 +2,9 @@
 
 #include "AP_HAL_RpiPico.h"
 
+#define RPI_PICO_MAX_TIMER_PROC 8
+#define RPI_PICO_MAX_IO_PROC 8
+
 class RpiPico::Scheduler : public AP_HAL::Scheduler {
 public:
     Scheduler();
@@ -13,11 +16,23 @@ public:
 
     void     register_timer_failsafe(AP_HAL::Proc, uint32_t period_us) override;
 
-    void     set_system_initialized() override;
-    bool     is_system_initialized() override { return true; }
+    void     set_system_initialized() override { _system_initialized = true; }
+    bool     is_system_initialized() override { return _system_initialized; }
 
     void     reboot(bool hold_in_bootloader) override;
 
     bool     in_main_thread() const override;
-    void     call_delay_cb() override;
+
+    void     run_timers();
+    void     run_io();
+
+private:
+    bool _system_initialized = false;
+    uint8_t timerProcessPointer = 0;
+    AP_HAL::MemberProc timerProcesses[RPI_PICO_MAX_TIMER_PROC];
+    uint8_t ioProcessPointer = 0;
+    AP_HAL::MemberProc ioProcesses[RPI_PICO_MAX_IO_PROC];
+
+    bool inTimerProcesses = false;
+    bool inIoProcesses = false;
 };

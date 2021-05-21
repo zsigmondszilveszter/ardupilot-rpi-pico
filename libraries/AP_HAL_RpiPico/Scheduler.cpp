@@ -9,11 +9,21 @@ using namespace RpiPico;
 
 extern const AP_HAL::HAL& hal;
 
+static repeating_timer_t KHz1_rt;
+static bool repeating_1KHz_timer_callback(struct repeating_timer *t) {
+    ((RpiPico::Scheduler*)hal.scheduler)->run_timers();
+    ((RpiPico::Scheduler*)hal.scheduler)->run_io();
+    return true;
+}
+
 Scheduler::Scheduler()
 {}
 
 void Scheduler::init()
-{}
+{
+    // 1khz timer for timer processes
+    add_repeating_timer_us(-1000, repeating_1KHz_timer_callback, NULL, &KHz1_rt);
+}
 
 void Scheduler::delay(uint16_t ms)
 {
@@ -26,18 +36,42 @@ void Scheduler::delay_microseconds(uint16_t us)
 }
 
 void Scheduler::register_timer_process(AP_HAL::MemberProc k)
-{}
+{
+    for (uint8_t i = 0; i < timerProcessPointer; i++) {
+        if (timerProcesses[i] == k) {
+            return;
+        }
+    }
+
+    if (timerProcessPointer < RPI_PICO_MAX_TIMER_PROC) {
+        timerProcesses[timerProcessPointer] = k;
+        timerProcessPointer++;
+    } else {
+        hal.console->printf("Out of timer processes\n");
+    }
+}
 
 void Scheduler::register_io_process(AP_HAL::MemberProc k)
-{}
+{
+    for (uint8_t i = 0; i < ioProcessPointer; i++) {
+        if (ioProcesses[i] == k) {
+            return;
+        }
+    }
+
+    if (ioProcessPointer < RPI_PICO_MAX_TIMER_PROC) {
+        ioProcesses[ioProcessPointer] = k;
+        ioProcessPointer++;
+    } else {
+        hal.console->printf("Out of io processes\n");
+    }
+}
 
 void Scheduler::register_timer_failsafe(AP_HAL::Proc, uint32_t period_us)
 {}
 
-void Scheduler::set_system_initialized()
-{}
-
 void Scheduler::reboot(bool hold_in_bootloader) {
+    // we don't support this yet
     for(;;);
 }
 
@@ -45,6 +79,34 @@ bool Scheduler::in_main_thread() const {
     return true;
 }
 
-void Scheduler::call_delay_cb() {
-    
+void Scheduler::run_timers()
+{
+    if (inTimerProcesses) {
+        return;
+    }
+    inTimerProcesses = true;
+
+    // now call the timer based drivers
+    for (int i = 0; i < timerProcessPointer; i++) {
+        if (timerProcesses[i]) {
+            timerProcesses[i]();
+        }
+    }
+    inTimerProcesses = false;
+}
+
+void Scheduler::run_io()
+{
+    if (inIoProcesses) {
+        return;
+    }
+    inIoProcesses = true;
+
+    // now call the timer based drivers
+    for (int i = 0; i < ioProcessPointer; i++) {
+        if (ioProcesses[i]) {
+            ioProcesses[i]();
+        }
+    }
+    inIoProcesses = false;
 }

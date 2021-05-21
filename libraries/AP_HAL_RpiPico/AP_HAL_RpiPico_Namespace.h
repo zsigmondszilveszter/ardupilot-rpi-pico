@@ -21,4 +21,9 @@ namespace RpiPico {
     class Util;
     // class Flash;
     class Console;
+
+    // Background task related stuff
+    class BgThread;
+    void BgThreadEntryPoint();
+    BgThread& getBgThread();
 }
