@@ -19,7 +19,6 @@
  */
 
 #include "UARTDriver.h"
-#include "BgThread.h"
 
 // Raspbery Pi Pico SDK headers
 #include "hardware/uart.h"
