@@ -32,6 +32,16 @@ int errno;
 static AP_Filesystem_Posix fs_local;
 #endif
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_RPIPICO
+#if HAVE_FILESYSTEM_SUPPORT
+#include "AP_Filesystem_FATFS.h"
+static AP_Filesystem_FATFS fs_local;
+#else
+static AP_Filesystem_Backend fs_local;
+int errno;
+#endif // HAVE_FILESYSTEM_SUPPORT
+#endif // HAL_BOARD_RPIPICO
+
 #ifdef HAL_HAVE_AP_ROMFS_EMBEDDED_H
 #include "AP_Filesystem_ROMFS.h"
 static AP_Filesystem_ROMFS fs_romfs;

@@ -47,6 +47,22 @@ struct dirent {
 #include "AP_Filesystem_posix.h"
 #endif
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_RPIPICO
+#if HAVE_FILESYSTEM_SUPPORT
+#include "AP_Filesystem_FATFS.h"
+#endif
+#define DT_REG 0
+#define DT_DIR 1
+#define MAX_NAME_LEN 13
+struct dirent {
+   char    d_name[MAX_NAME_LEN]; /* filename */
+   uint8_t d_type;
+};
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#endif
+
 #include "AP_Filesystem_backend.h"
 
 class AP_Filesystem {
