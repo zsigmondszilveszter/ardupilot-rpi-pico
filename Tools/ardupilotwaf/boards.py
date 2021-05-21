@@ -837,6 +837,11 @@ class rpi_pico(Board):
             'AP_HAL_RpiPico',
         ]
 
+        # we don't support ardupilot type heap for now
+        env.DEFINES.update(
+            ENABLE_HEAP = 0,
+        )
+
 
     def build(self, bld):
         bld.load('pico')

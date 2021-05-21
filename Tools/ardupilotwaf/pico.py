@@ -72,7 +72,10 @@ def readLinkingStuff(conf):
                     if any(component in s for s in [
                             "CMakeFiles/" + conf.env.CMAKE_MAIN_APP_NAME + ".dir/" +conf.env.CMAKE_MAIN_APP_NAME +".cpp.obj",
                             conf.env.CMAKE_MAIN_APP_NAME+".elf",
-                            "pico-sdk/src/rp2_common/boot_stage2/bs2_default_padded_checksummed.S"
+                            "pico-sdk/src/rp2_common/boot_stage2/bs2_default_padded_checksummed.S",
+                            # the new_delete.cpp's "new", "delete" and other keywords implementations
+                            # are in conflict with the ardupilot own implementations
+                            "CMakeFiles/empty.dir/home/szilveszter/Programming/personal/ardupilot-rpi-pico/modules/pico-sdk/src/rp2_common/pico_standard_link/new_delete.cpp.obj"
                     ]):
                         continue
                     pico_link_objs.append(conf.env.CMAKE_BUILD_DIR+"/"+component)

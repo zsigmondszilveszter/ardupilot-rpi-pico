@@ -15,6 +15,7 @@ if (TARGET tinyusb_device)
         empty.cpp
     )
 
+    # disable stdio on UART, the uarts are used for other things
     pico_enable_stdio_uart(empty 0)
     # enable pico stdio over USB in order to link and include every required libraries and files
     # but we don't initialize and use the Pico built in stdio
@@ -23,6 +24,7 @@ if (TARGET tinyusb_device)
     target_link_libraries(
         empty
         pico_stdlib
+        pico_multicore
     )
 elseif(PICO_ON_DEVICE)
     message(WARNING "not building ardupilot-rpi-pico because TinyUSB submodule is not initialized in the SDK")
