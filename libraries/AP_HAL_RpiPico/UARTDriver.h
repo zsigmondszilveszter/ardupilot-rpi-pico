@@ -22,7 +22,6 @@
 
 class RpiPico::UARTDriver : public AP_HAL::UARTDriver {
 public:
-    UARTDriver();
     UARTDriver(uint8_t serial_num);
 
     /*  Rpi Pico implementations of UARTDriver virtual methods */

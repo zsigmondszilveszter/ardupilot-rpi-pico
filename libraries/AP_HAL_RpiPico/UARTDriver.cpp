@@ -29,7 +29,6 @@
 static mutex_t rpiPico_uartTxFifoMutex[4];
 static mutex_t rpiPico_uartRxFifoMutex[4];
 
-RpiPico::UARTDriver::UARTDriver() {}
 RpiPico::UARTDriver::UARTDriver(uint8_t serial_num) {
     switch (serial_num) {
         case 0: 

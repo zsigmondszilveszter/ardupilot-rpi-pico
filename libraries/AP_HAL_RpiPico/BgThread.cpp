@@ -29,8 +29,8 @@ extern const AP_HAL::HAL& hal;
 RpiPico::BgThread& bgthread = RpiPico::getBgThread();
 
 // register background tasks, don't forget to add them manually to the list of background tasks
-void usbConsoleTask0(void) { ((RpiPico::Console*)(hal.console))->flush(); }
-void usbConsoleTask1(void) { ((RpiPico::Console*)(hal.console))->tusb_task(); }
+void usbConsoleTask0(void) { ((RpiPico::Console*)(hal.console))->tusb_task(); }
+void usbConsoleTask1(void) { ((RpiPico::Console*)(hal.console))->flush(); }
 void uartTask0(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->flush(); }
 void uartTask1(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->async_read(); }
 void uartTask2(void) { ((RpiPico::UARTDriver*)(hal.serial(1)))->flush(); }
@@ -38,11 +38,16 @@ void uartTask3(void) { ((RpiPico::UARTDriver*)(hal.serial(1)))->async_read(); }
 
 
 static alarm_pool_t * core1_alarm_pool;
-static repeating_timer_t Hz1_rt, KHz10_rt;
+static repeating_timer_t Hz1_rt, KHz1_rt, KHz10_rt;
 
 // 1 Hz interval timer callback
 static bool repeating_1Hz_timer_callback(struct repeating_timer *t) {
     // TODO, maybe a LED blinker
+    return true;
+}
+// 1 KHz interval timer
+static bool repeating_1KHz_timer_callback(struct repeating_timer *t) {
+    bgthread.run_KHz1_tasks();
     return true;
 }
 // 10 KHz interval timer
@@ -58,6 +63,8 @@ void RpiPico::BgThreadEntryPoint(){
 
     // 1Hz timer
     alarm_pool_add_repeating_timer_ms(core1_alarm_pool, -1000, repeating_1Hz_timer_callback, NULL, &Hz1_rt);
+    // 1KHz timer
+    alarm_pool_add_repeating_timer_us(core1_alarm_pool, -1000, repeating_1KHz_timer_callback, NULL, &KHz1_rt);
     // 10KHz timer
     alarm_pool_add_repeating_timer_us(core1_alarm_pool, -100, repeating_10KHz_timer_callback, NULL, &KHz10_rt);
 
@@ -67,12 +74,12 @@ void RpiPico::BgThreadEntryPoint(){
     multicore_fifo_push_blocking(true);
 
     // add background tasks
-    bgthread.add_new_KHz10_task((BgCallable*) &usbConsoleTask0);
-    bgthread.add_new_KHz10_task((BgCallable*) &usbConsoleTask1);
-    bgthread.add_new_KHz10_task((BgCallable*) &uartTask0);
-    bgthread.add_new_KHz10_task((BgCallable*) &uartTask1);
-    bgthread.add_new_KHz10_task((BgCallable*) &uartTask2);
-    bgthread.add_new_KHz10_task((BgCallable*) &uartTask3);
+    bgthread.add_new_KHz1_task((BgCallable*) &usbConsoleTask0);
+    bgthread.add_new_KHz1_task((BgCallable*) &usbConsoleTask1);
+    bgthread.add_new_KHz1_task((BgCallable*) &uartTask0);
+    bgthread.add_new_KHz1_task((BgCallable*) &uartTask1);
+    bgthread.add_new_KHz1_task((BgCallable*) &uartTask2);
+    bgthread.add_new_KHz1_task((BgCallable*) &uartTask3);
 }
 
 
@@ -102,6 +109,20 @@ bool RpiPico::BgThread::add_new_Hz1_task(BgCallable * task){
 void RpiPico::BgThread::run_Hz1_tasks() {
     for (uint8_t i=0; i<Hz1_tasks.size(); i++) {
         Hz1_tasks[i]();
+    }
+}
+
+bool RpiPico::BgThread::add_new_KHz1_task(BgCallable * task){
+    if (checkIfThereIsAnySlotLeft()) {
+        KHz1_tasks.push_back(task);
+        return true;
+    }
+    return false;
+}
+
+void RpiPico::BgThread::run_KHz1_tasks() {
+    for (uint8_t i=0; i<KHz1_tasks.size(); i++) {
+        KHz1_tasks[i]();
     }
 }
 
