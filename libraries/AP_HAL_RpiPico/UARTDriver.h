@@ -12,9 +12,9 @@
 #define RPI_PICO_UART1_TX_GPIO_PIN 4
 #define RPI_PICO_UART1_RX_GPIO_PIN 5
 
-// max allowed is 255 (uint8_t limits)
-#define RPI_PICO_UART_TX_FIFO_SIZE 32
-#define RPI_PICO_UART_RX_FIFO_SIZE 128
+// default UART FIFO sizes, max allowed is 255 (see below) (uint8_t limits)
+#define RPI_PICO_UART_TX_FIFO_SIZE 64
+#define RPI_PICO_UART_RX_FIFO_SIZE 64
 
 // do not change, unless you know what you are doing 
 // bigger than 255, requires changing some uint8_t members
@@ -22,6 +22,7 @@
 
 class RpiPico::UARTDriver : public AP_HAL::UARTDriver {
 public:
+    UARTDriver();
     UARTDriver(uint8_t serial_num);
 
     /*  Rpi Pico implementations of UARTDriver virtual methods */
@@ -29,7 +30,6 @@ public:
     void begin(uint32_t b, uint16_t rxS, uint16_t txS) override;
     void end() override;
     void flush() override;
-    void async_read();
     bool is_initialized() override { return initialized_flag; };
     void set_blocking_writes(bool blocking) override;
     bool tx_pending() override;
@@ -44,8 +44,9 @@ public:
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
 
-    void clearTxFIFO();
-private:
+    virtual void clearTxFIFO();
+    virtual void async_read();
+protected:
     uart_inst_t * uart_inst;
     bool initialized_flag = false;
     bool blocking_writes;

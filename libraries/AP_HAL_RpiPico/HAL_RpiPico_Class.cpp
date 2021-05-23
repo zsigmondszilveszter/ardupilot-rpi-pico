@@ -27,12 +27,6 @@ static Util utilInstance;
 // static Flash flashDriver;
 static BgThread bgthread;
 
-// background tasks, don't forget to add them manually to the list of dedicated background thread's background tasks
-void bgtask0(void) { uartBDriver.flush(); }
-void bgtask1(void) { uartBDriver.async_read(); }
-void bgtask2(void) { uartCDriver.flush(); }
-void bgtask3(void) { uartCDriver.async_read(); }
-
 HAL_RpiPico::HAL_RpiPico() :
     AP_HAL::HAL(
         &console_over_USB,
@@ -66,17 +60,12 @@ void HAL_RpiPico::run(int argc, char* const argv[], Callbacks* callbacks) const
      * up to the programmer to do this in the correct order.
      * Scheduler should likely come first. */
     scheduler->init();
-    // the console is USB, the baud rate doesn't count
-    console->begin(0);
-    scheduler->delay(2000);
 
-    // manually add background tasks to the dedicated background thread
-    bgthread.add_new_MHz1_task((BgCallable*) &bgtask0);
-    bgthread.add_new_MHz1_task((BgCallable*) &bgtask1);
-    bgthread.add_new_MHz1_task((BgCallable*) &bgtask2);
-    bgthread.add_new_MHz1_task((BgCallable*) &bgtask3);
-
+    scheduler->delay(1);
+    // launch the background thread on second core (core1)
     multicore_launch_core1(RpiPico::BgThreadEntryPoint);
+    // wait for it to start up
+    multicore_fifo_pop_blocking();
 
     callbacks->setup();
     scheduler->set_system_initialized();

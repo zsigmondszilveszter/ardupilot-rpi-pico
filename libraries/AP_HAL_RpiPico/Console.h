@@ -21,29 +21,33 @@
 #pragma once
 
 #include "AP_HAL_RpiPico.h"
+#include "UARTDriver.h"
+#include "pico/mutex.h"
+#include <queue>
 
-class RpiPico::Console : public AP_HAL::UARTDriver {
+// max allowed is 255 (uint8_t limits)
+#define RPI_PICO_USB_TX_FIFO_SIZE 64
+#define RPI_PICO_USB_RX_FIFO_SIZE 64
+
+// do not change, unless you know what you are doing 
+// bigger than 255, requires changing some uint8_t members
+#define RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE 255
+
+class RpiPico::Console : public RpiPico::UARTDriver {
 public:
     Console();
+    void init();
+    void tusb_task();
 
     void begin(uint32_t b) override;
     void begin(uint32_t b, uint16_t rxS, uint16_t txS) override;
     void end() override;
+
     void flush() override;
-    bool is_initialized() override { return initialized_flag; };
-    void set_blocking_writes(bool blocking) override;
-    bool tx_pending() override;
-
-
-    uint32_t available() override;
-    uint32_t txspace() override;
-    int16_t read() override;
-    ssize_t read(uint8_t *buffer, uint16_t count) override;
-    bool discard_input() override;
-
-    size_t write(uint8_t c) override;
-    size_t write(const uint8_t *buffer, size_t size) override;
-
-private:
-    bool initialized_flag = false;
+    void async_read() override;
+    
+protected:
+    // software FIFO buffers
+    uint8_t maxTxFIFO = RPI_PICO_USB_TX_FIFO_SIZE <= RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE ? RPI_PICO_USB_TX_FIFO_SIZE : RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE;
+    uint8_t maxRxFIFO = RPI_PICO_USB_RX_FIFO_SIZE <= RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE ? RPI_PICO_USB_RX_FIFO_SIZE : RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE;
 };

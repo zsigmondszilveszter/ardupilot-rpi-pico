@@ -26,9 +26,10 @@
 
 #define rpi_uart(x) uart##x
 
-static mutex_t rpiPico_txFifoMutex[4];
-static mutex_t rpiPico_rxFifoMutex[4];
+static mutex_t rpiPico_uartTxFifoMutex[4];
+static mutex_t rpiPico_uartRxFifoMutex[4];
 
+RpiPico::UARTDriver::UARTDriver() {}
 RpiPico::UARTDriver::UARTDriver(uint8_t serial_num) {
     switch (serial_num) {
         case 0: 
@@ -54,8 +55,8 @@ void RpiPico::UARTDriver::begin(uint32_t b) {
     gpio_set_function(rx_pin, GPIO_FUNC_UART);
     uart_init(uart_inst, b);
 
-    txFifoMutex = &rpiPico_txFifoMutex[uart_get_index(uart_inst)];
-    rxFifoMutex = &rpiPico_rxFifoMutex[uart_get_index(uart_inst)];
+    txFifoMutex = &rpiPico_uartTxFifoMutex[uart_get_index(uart_inst)];
+    rxFifoMutex = &rpiPico_uartRxFifoMutex[uart_get_index(uart_inst)];
     mutex_init(txFifoMutex);
     mutex_init(rxFifoMutex);
     initialized_flag = true;
@@ -110,7 +111,11 @@ void RpiPico::UARTDriver::async_read() {
     uint8_t steps = 0;
     while(uart_is_readable(uart_inst) && steps < 32) {
         uint8_t c = uart_getc(uart_inst);
-        // TODO, protect the buffer access with semaphore
+        if (rxFIFO.size() == maxRxFIFO){
+            // we start to delete the oldest characters from buffer, 
+            // because we ran out of space
+            rxFIFO.pop();
+        }
         rxFIFO.push(c);
         steps++;
     }
@@ -122,6 +127,8 @@ void RpiPico::UARTDriver::set_blocking_writes(bool blocking) {
     blocking_writes = blocking;
 }
 bool RpiPico::UARTDriver::tx_pending() {
+    if (!is_initialized()) return false;
+
     if (!mutex_try_enter(txFifoMutex, NULL)){
         // the transfer FIFO is locked.
         return true;
@@ -132,14 +139,18 @@ bool RpiPico::UARTDriver::tx_pending() {
 }
 
 uint32_t RpiPico::UARTDriver::available() {
+    if (!is_initialized()) return 0;
+
     // we must wait until we can obtain the rxFIFO
     mutex_enter_blocking(rxFifoMutex);
     uint32_t ret_val = rxFIFO.size();
     mutex_exit(rxFifoMutex);
-    return ret_val;;
+    return ret_val;
 }
 
 uint32_t RpiPico::UARTDriver::txspace() {
+    if (!is_initialized()) return 0;
+
     uint32_t space = 0;
     // the transfer FIFO is locked, we wait max 10 ms to take the resource
     if (!mutex_enter_timeout_ms(txFifoMutex, 10)) {
@@ -152,6 +163,8 @@ uint32_t RpiPico::UARTDriver::txspace() {
 }
 
 int16_t RpiPico::UARTDriver::read() {
+    if (!is_initialized()) return 0;
+
     // we must wait until we can obtain the rxFIFO
     mutex_enter_blocking(rxFifoMutex);
     int16_t ret = -1;
@@ -164,6 +177,8 @@ int16_t RpiPico::UARTDriver::read() {
 }
 
 bool RpiPico::UARTDriver::discard_input() {
+    if (!is_initialized()) return false;
+
     // read the hardware fifos into software fifos
     async_read();
     // and then clear the software fifo
@@ -175,6 +190,8 @@ bool RpiPico::UARTDriver::discard_input() {
 }
 
 void RpiPico::UARTDriver::clearTxFIFO() {
+    if (!is_initialized()) return;
+
     // clear the software fifo
     mutex_enter_blocking(txFifoMutex);
     std::queue<uint8_t>().swap(txFIFO);
@@ -182,19 +199,24 @@ void RpiPico::UARTDriver::clearTxFIFO() {
 }
 
 size_t RpiPico::UARTDriver::write(uint8_t c) {
+    if (!is_initialized()) return 0;
+
     // we must write this to the txFIFO
     mutex_enter_blocking(txFifoMutex);
-    size_t ret_val = 0;
-    if (txFIFO.size() < maxTxFIFO){
-        txFIFO.push(c);
-        ret_val = 1;
+
+    if (txFIFO.size() == maxTxFIFO){
+        // start to remove old data from buffer if there is no more space left
+        txFIFO.pop();
     }
+    txFIFO.push(c);
     mutex_exit(txFifoMutex);
-    return ret_val;
+    return 1;
 }
 
 size_t RpiPico::UARTDriver::write(const uint8_t *buffer, size_t size)
 {
+    if (!is_initialized()) return 0;
+
     size_t n = 0;
     while (size--) {
         n += write(*buffer++);

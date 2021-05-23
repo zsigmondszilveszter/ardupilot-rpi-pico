@@ -38,13 +38,13 @@ public:
 
     bool add_new_Hz1_task(BgCallable * task);
     void run_Hz1_tasks();
-    bool add_new_MHz1_task(BgCallable * task);
-    void run_MHz1_tasks();
+    bool add_new_KHz10_task(BgCallable * task);
+    void run_KHz10_tasks();
 
 private:
     std::vector<BgCallable*> Hz1_tasks;
-    std::vector<BgCallable*> MHz1_tasks;
+    std::vector<BgCallable*> KHz10_tasks;
 
     uint8_t totalNumberOfTasks();
-    bool checkIfThereIsSlotLeft();
+    bool checkIfThereIsAnySlotLeft();
 };

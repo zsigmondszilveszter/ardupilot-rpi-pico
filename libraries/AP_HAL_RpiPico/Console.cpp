@@ -24,158 +24,104 @@
 #include "tusb.h"
 #include "pico/time.h"
 #include "pico/mutex.h"
-#include "hardware/irq.h"
-#include "pico/stdio_usb.h"
 
-
-static_assert(PICO_STDIO_USB_LOW_PRIORITY_IRQ > RTC_IRQ, ""); // note RTC_IRQ is currently the last one
 static mutex_t usb_console_mutex;
-
-static void low_priority_worker_irq(void) {
-    // if the mutex is already owned, then we are in user code
-    // in this file which will do a tud_task itself, so we'll just do nothing
-    // until the next tick; we won't starve
-    if (mutex_try_enter(&usb_console_mutex, NULL)) {
-        tud_task();
-        mutex_exit(&usb_console_mutex);
-    }
-}
-
-static int64_t timer_task(__unused alarm_id_t id, __unused void *user_data) {
-    irq_set_pending(PICO_STDIO_USB_LOW_PRIORITY_IRQ);
-    return PICO_STDIO_USB_TASK_INTERVAL_US;
-}
-
-static void usb_out_chars(const char *buf, int length) {
-    static uint64_t last_avail_time;
-    uint32_t owner;
-    if (!mutex_try_enter(&usb_console_mutex, &owner)) {
-        if (owner == get_core_num()) return; // would deadlock otherwise
-        mutex_enter_blocking(&usb_console_mutex);
-    }
-    if (tud_cdc_connected()) {
-        for (int i = 0; i < length;) {
-            int n = length - i;
-            int avail = tud_cdc_write_available();
-            if (n > avail) n = avail;
-            if (n) {
-                int n2 = tud_cdc_write(buf + i, n);
-                tud_task();
-                tud_cdc_write_flush();
-                i += n2;
-                last_avail_time = time_us_64();
-            } else {
-                tud_task();
-                tud_cdc_write_flush();
-                if (!tud_cdc_connected() ||
-                    (!tud_cdc_write_available() && time_us_64() > last_avail_time + PICO_STDIO_USB_STDOUT_TIMEOUT_US)) {
-                    break;
-                }
-            }
-        }
-    } else {
-        // reset our timeout
-        last_avail_time = 0;
-    }
-    mutex_exit(&usb_console_mutex);
-}
-
-int usb_in_chars(char *buf, int length) {
-    uint32_t owner;
-    if (!mutex_try_enter(&usb_console_mutex, &owner)) {
-        if (owner == get_core_num()) return PICO_ERROR_NO_DATA; // would deadlock otherwise
-        mutex_enter_blocking(&usb_console_mutex);
-    }
-    int rc = PICO_ERROR_NO_DATA;
-    if (tud_cdc_connected() && tud_cdc_available()) {
-        int count = tud_cdc_read(buf, length);
-        rc =  count ? count : PICO_ERROR_NO_DATA;
-    }
-    mutex_exit(&usb_console_mutex);
-    return rc;
-}
-
-static bool last_ended_with_cr = false;
-static void usb_out_chars_crlf(const char *s, int len) {
-    int first_of_chunk = 0;
-    static const char crlf_str[] = {'\r', '\n'};
-    for (int i = 0; i < len; i++) {
-        bool prev_char_was_cr = i > 0 ? s[i - 1] == '\r' : last_ended_with_cr;
-        if (s[i] == '\n' && !prev_char_was_cr) {
-            if (i > first_of_chunk) {
-                usb_out_chars(&s[first_of_chunk], i - first_of_chunk);
-            }
-            usb_out_chars(crlf_str, 2);
-            first_of_chunk = i + 1;
-        }
-    }
-    if (first_of_chunk < len) {
-        usb_out_chars(&s[first_of_chunk], len - first_of_chunk);
-    }
-    if (len > 0) {
-        last_ended_with_cr = s[len - 1] == '\r';
-    }
-}
+static mutex_t rpiPico_usbTxFifoMutex;
+static mutex_t rpiPico_usbRxFifoMutex;
 
 
 RpiPico::Console::Console() 
 {}
 
-void RpiPico::Console::begin(uint32_t b) {
+void RpiPico::Console::init() 
+{
     if (is_initialized()) 
         return;
-    tusb_init(); // initialize tinyusb stack
-    irq_set_exclusive_handler(PICO_STDIO_USB_LOW_PRIORITY_IRQ, low_priority_worker_irq);
-    irq_set_enabled(PICO_STDIO_USB_LOW_PRIORITY_IRQ, true);
-
+    // initialize tinyusb stack
+    tusb_init(); 
     mutex_init(&usb_console_mutex);
-    add_alarm_in_us(PICO_STDIO_USB_TASK_INTERVAL_US, timer_task, NULL, true);
+
+    // the pointers to those mutexes are a bit useless, but I wanted be consistent across the USB and UART devices
+    txFifoMutex = &rpiPico_usbTxFifoMutex;
+    rxFifoMutex = &rpiPico_usbRxFifoMutex;
+    mutex_init(txFifoMutex);
+    mutex_init(rxFifoMutex);
+
+    initialized_flag = true;
+}
+
+void RpiPico::Console::begin(uint32_t b) {
+    //
 }
 void RpiPico::Console::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
-    // we don't support rx and tx FIFO buffers for USB, however the hardware itself 
-    // has some FIFO buffer and they are used under the hood, but we cannot acquire their status
+    // max allowed fifo size is RPI_PICO_UART_MAX_ALLOWED_BUFFER_SIZE
+    maxTxFIFO = txS <= RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE ? txS : RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE;
+    maxRxFIFO = rxS <= RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE ? rxS : RPI_PICO_USB_MAX_ALLOWED_BUFFER_SIZE;
     begin(b);
 }
 void RpiPico::Console::end() {
     // cannot deinit
 }
 
+void RpiPico::Console::tusb_task() {
+    if (!is_initialized()) return;
+
+    if (mutex_try_enter(&usb_console_mutex, NULL)) {
+        tud_task();
+        tud_cdc_write_flush();
+        mutex_exit(&usb_console_mutex);
+    }
+}
+
 void RpiPico::Console::flush() {
-    //
-}
-void RpiPico::Console::set_blocking_writes(bool blocking) {
-    //
-}
-bool RpiPico::Console::tx_pending() { 
-    return false; 
+    if (!is_initialized()) return;
+    if (!tud_cdc_connected()) return;
+
+    if (!mutex_try_enter(txFifoMutex, NULL)){
+        // the transfer FIFO is locked.
+        // the flush function is called periodically by the background thread
+        // therefore we leave now and try in the next round
+        return;
+    }
+    if (!mutex_try_enter(&usb_console_mutex, NULL)) {
+        mutex_exit(txFifoMutex);
+        return;
+    }
+    while (!txFIFO.empty() && tud_cdc_write_available()) {
+        uint8_t c = txFIFO.front();
+        tud_cdc_write_char(c);
+        txFIFO.pop();
+    }
+    mutex_exit(txFifoMutex);
+    mutex_exit(&usb_console_mutex);
 }
 
-/* Rpi Pico implementations of Stream virtual methods */
-uint32_t RpiPico::Console::available() {
-    return tud_cdc_available();
-}
-uint32_t RpiPico::Console::txspace() { 
-    return tud_cdc_write_available(); 
-}
-int16_t RpiPico::Console::read() {
-    uint8_t c = 0;
-    int16_t res = usb_in_chars((char *)c, 1);
-    return res < PICO_OK ? -1 : c;
-}
-ssize_t RpiPico::Console::read(uint8_t *buffer, uint16_t count) {
-    int16_t res = usb_in_chars((char *)buffer, count);
-    return res < PICO_OK ? -1 : res;
-}
-bool RpiPico::Console::discard_input() { return false; }
+void RpiPico::Console::async_read() {
+    if (!is_initialized()) return;
+    if (!tud_cdc_connected()) return;
 
-/* Rpi Pico implementations of Print virtual methods */
-size_t RpiPico::Console::write(uint8_t c) {
-    write(&c, 1);
-    return 1;
-}
-
-size_t RpiPico::Console::write(const uint8_t *buffer, size_t size)
-{
-    usb_out_chars_crlf((const char *)buffer, size);
-    return size;
+    if (!mutex_try_enter(rxFifoMutex, NULL)){
+        // the receive FIFO is locked.
+        // the async_read function is called periodically by the background thread
+        // therefore we leave now and try in the next round
+        return;
+    }
+    if (!mutex_try_enter(&usb_console_mutex, NULL)) {
+        mutex_exit(rxFifoMutex);
+        return;
+    }
+    // we read max 64 bytes at once
+    uint8_t steps = 0;
+    while(tud_cdc_available() && steps < 64) {
+        uint8_t c = tud_cdc_read_char();
+        if (rxFIFO.size() == maxRxFIFO){
+            // we start to delete the oldest characters from buffer, 
+            // because we ran out of space
+            rxFIFO.pop();
+        }
+        rxFIFO.push(c);
+        steps++;
+    }
+    mutex_exit(rxFifoMutex);
+    mutex_exit(&usb_console_mutex);
 }
