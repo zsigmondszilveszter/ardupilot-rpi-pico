@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #include "pico/time.h"
+#include "pico/sync.h"
 
 using namespace RpiPico;
 
@@ -12,7 +13,6 @@ extern const AP_HAL::HAL& hal;
 static repeating_timer_t KHz1_rt;
 static bool repeating_1KHz_timer_callback(struct repeating_timer *t) {
     ((RpiPico::Scheduler*)hal.scheduler)->run_timers();
-    ((RpiPico::Scheduler*)hal.scheduler)->run_io();
     return true;
 }
 
@@ -21,7 +21,7 @@ Scheduler::Scheduler()
 
 void Scheduler::init()
 {
-    // 1khz timer for timer processes
+    // 1khz timer for timer processes, they run on the main thread (core0)
     add_repeating_timer_us(-1000, repeating_1KHz_timer_callback, NULL, &KHz1_rt);
 }
 
@@ -67,8 +67,10 @@ void Scheduler::register_io_process(AP_HAL::MemberProc k)
     }
 }
 
-void Scheduler::register_timer_failsafe(AP_HAL::Proc, uint32_t period_us)
-{}
+void Scheduler::register_timer_failsafe(AP_HAL::Proc failsafe, uint32_t period_us)
+{
+    _failsafe = failsafe;
+}
 
 void Scheduler::reboot(bool hold_in_bootloader) {
     // we don't support this yet
@@ -76,7 +78,8 @@ void Scheduler::reboot(bool hold_in_bootloader) {
 }
 
 bool Scheduler::in_main_thread() const {
-    return true;
+    // core0 is the main thread
+    return get_core_num() == 0;
 }
 
 void Scheduler::run_timers()
@@ -91,6 +94,10 @@ void Scheduler::run_timers()
         if (timerProcesses[i]) {
             timerProcesses[i]();
         }
+    }
+    // and the failsafe, if one is setup
+    if (_failsafe != nullptr) {
+        _failsafe();
     }
     inTimerProcesses = false;
 }

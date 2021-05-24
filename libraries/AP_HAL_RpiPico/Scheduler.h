@@ -32,6 +32,7 @@ private:
     AP_HAL::MemberProc timerProcesses[RPI_PICO_MAX_TIMER_PROC];
     uint8_t ioProcessPointer = 0;
     AP_HAL::MemberProc ioProcesses[RPI_PICO_MAX_IO_PROC];
+    AP_HAL::Proc _failsafe;
 
     bool inTimerProcesses = false;
     bool inIoProcesses = false;

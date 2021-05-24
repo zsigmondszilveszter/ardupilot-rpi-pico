@@ -31,6 +31,7 @@ RpiPico::BgThread& bgthread = RpiPico::getBgThread();
 // register background tasks, don't forget to add them manually to the list of background tasks
 void usbConsoleTask0(void) { ((RpiPico::Console*)(hal.console))->tusb_task(); }
 void usbConsoleTask1(void) { ((RpiPico::Console*)(hal.console))->flush(); }
+void schedulerIOTasks(void) { ((RpiPico::Scheduler*)(hal.scheduler))->run_io(); }
 void uartTask0(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->flush(); }
 void uartTask1(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->async_read(); }
 void uartTask2(void) { ((RpiPico::UARTDriver*)(hal.serial(1)))->flush(); }
