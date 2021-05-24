@@ -203,22 +203,29 @@ size_t RpiPico::UARTDriver::write(uint8_t c) {
     // we must write this to the txFIFO
     mutex_enter_blocking(txFifoMutex);
 
-    if (txFIFO.size() == maxTxFIFO){
-        // start to remove old data from buffer if there is no more space left
-        txFIFO.pop();
+    size_t ret = 0;
+    if (txFIFO.size() < maxTxFIFO) {
+        txFIFO.push(c);
+        ret = 1;
     }
-    txFIFO.push(c);
     mutex_exit(txFifoMutex);
-    return 1;
+    return ret;
 }
 
 size_t RpiPico::UARTDriver::write(const uint8_t *buffer, size_t size)
 {
     if (!is_initialized()) return 0;
+    // we must write this to the txFIFO
+    mutex_enter_blocking(txFifoMutex);
 
-    size_t n = 0;
-    while (size--) {
-        n += write(*buffer++);
+    size_t ret = 0;
+    for (uint32_t i=0; i<size; i++){
+        if (txFIFO.size() >= maxTxFIFO){
+            break;
+        }
+        txFIFO.push(buffer[i]);
+        ret++;
     }
-    return n;
+    mutex_exit(txFifoMutex);
+    return ret;
 }
