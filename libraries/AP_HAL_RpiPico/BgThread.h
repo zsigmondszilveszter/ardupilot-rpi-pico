@@ -22,12 +22,14 @@
 
 #include "AP_HAL_RpiPico.h"
 #include <vector>
+#include "pico/time.h"
 
 #define CORE1_ALARM_POOL_HARDWARE_ALARM_NUM 2
 // do not change, unless you know what you are doing 
 // bigger than 255, requires changing some uint8_t members
-#define RPI_PICO_MAX_BG_TASKS 32
+#define RPI_PICO_MAX_BG_TASKS 64
 
+typedef void (*BgCallable)(void);
 
 void RpiPico::BgThreadEntryPoint();
 
@@ -35,19 +37,15 @@ void RpiPico::BgThreadEntryPoint();
 class RpiPico::BgThread {
 public:
     BgThread();
+    void init_alarm_pool(alarm_pool_t * bg_thread_alarm_pool);
 
-    bool add_new_Hz1_task(BgCallable * task);
-    void run_Hz1_tasks();
-    bool add_new_KHz1_task(BgCallable * task);
-    void run_KHz1_tasks();
-    bool add_new_KHz10_task(BgCallable * task);
-    void run_KHz10_tasks();
+    bool add_periodic_background_task_us(int64_t period_usec, BgCallable callback);
 
+    void runBgCallable(uint8_t index);
 private:
-    std::vector<BgCallable*> Hz1_tasks;
-    std::vector<BgCallable*> KHz1_tasks;
-    std::vector<BgCallable*> KHz10_tasks;
-
-    uint8_t totalNumberOfTasks();
-    bool checkIfThereIsAnySlotLeft();
+    alarm_pool_t * _alarm_pool = NULL;
+    uint8_t _indicies[RPI_PICO_MAX_BG_TASKS];
+    repeating_timer_t _timers[RPI_PICO_MAX_BG_TASKS];
+    BgCallable _callbacks[RPI_PICO_MAX_BG_TASKS];
+    uint8_t _nr_of_tasks = 0;
 };

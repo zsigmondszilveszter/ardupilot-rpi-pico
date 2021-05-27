@@ -73,7 +73,6 @@ void Scheduler::register_timer_failsafe(AP_HAL::Proc failsafe, uint32_t period_u
 }
 
 void Scheduler::reboot(bool hold_in_bootloader) {
-    // we don't support this yet
     for(;;);
 }
 

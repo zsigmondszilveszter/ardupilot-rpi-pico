@@ -29,7 +29,10 @@ def setPicoToolchainPath(conf):
 @conf
 def run_external_cmake_config(conf):
     print('Execute the external Cmake configuration command')
-    st = 'cd ' + conf.env.CMAKE_BUILD_DIR_ABS_PATH + ' && env "PICO_SDK_PATH=' + conf.env.PICO_SDK_PATH + '" "PICO_TOOLCHAIN_PATH=' + conf.env.PICO_TOOLCHAIN_PATH +'" ' + conf.env.CMAKE[0] + ' ' + conf.env.PICO_SDK_CMAKE_CONFIG
+    debug_mode = ""
+    if conf.env.DEBUG:
+        debug_mode = "-DCMAKE_BUILD_TYPE=Debug"
+    st = 'cd ' + conf.env.CMAKE_BUILD_DIR_ABS_PATH + ' && env "PICO_SDK_PATH=' + conf.env.PICO_SDK_PATH + '" "PICO_TOOLCHAIN_PATH=' + conf.env.PICO_TOOLCHAIN_PATH +'" ' + conf.env.CMAKE[0] + ' ' + conf.env.PICO_SDK_CMAKE_CONFIG + ' ' + debug_mode
     subprocess.run(st, shell=True)
     conf.msg("Configuring external CMake ", "Done")
 
