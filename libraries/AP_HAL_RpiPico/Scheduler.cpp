@@ -1,14 +1,18 @@
 
 #include "Scheduler.h"
+#include "BgThread.h"
 
 #include <stdarg.h>
 
 #include "pico/time.h"
 #include "pico/sync.h"
+#include "hardware/watchdog.h"
+
 
 using namespace RpiPico;
 
 extern const AP_HAL::HAL& hal;
+RpiPico::BgThread& bgthread_pointer_scheduler = RpiPico::getBgThread();
 
 static repeating_timer_t KHz1_rt;
 static bool repeating_1KHz_timer_callback(struct repeating_timer *t) {
@@ -21,8 +25,16 @@ Scheduler::Scheduler()
 
 void Scheduler::init()
 {
+#if RPI_PICO_WATCHDOG_ENABLED
+    // enable watchdog
+    watchdog_enable(RPI_PICO_WATCHDOG_TIMEOUT, 1);
+#endif
+
     // 1khz timer for timer processes, they run on the main thread (core0)
     add_repeating_timer_us(-1000, repeating_1KHz_timer_callback, NULL, &KHz1_rt);
+
+    // 500hz io tasks
+    bgthread_pointer_scheduler.add_periodic_background_task_us(2000, FUNCTOR_BIND_MEMBER(&Scheduler::run_io, void), PR2);
 }
 
 void Scheduler::delay(uint16_t ms)
@@ -32,7 +44,7 @@ void Scheduler::delay(uint16_t ms)
 
 void Scheduler::delay_microseconds(uint16_t us)
 {
-    sleep_us(us);
+    busy_wait_us_32(us);
 }
 
 void Scheduler::register_timer_process(AP_HAL::MemberProc k)
@@ -73,6 +85,7 @@ void Scheduler::register_timer_failsafe(AP_HAL::Proc failsafe, uint32_t period_u
 }
 
 void Scheduler::reboot(bool hold_in_bootloader) {
+    reboot_requested = true;
     for(;;);
 }
 

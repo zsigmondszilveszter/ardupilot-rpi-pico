@@ -7,15 +7,6 @@
 #include "pico/mutex.h"
 #include <queue>
 
-#define RPI_PICO_UART0_TX_GPIO_PIN 0
-#define RPI_PICO_UART0_RX_GPIO_PIN 1
-#define RPI_PICO_UART1_TX_GPIO_PIN 4
-#define RPI_PICO_UART1_RX_GPIO_PIN 5
-
-// default UART FIFO sizes, max allowed is 255 (see below) (uint8_t limits)
-#define RPI_PICO_UART_TX_FIFO_SIZE 64
-#define RPI_PICO_UART_RX_FIFO_SIZE 64
-
 // do not change, unless you know what you are doing 
 // bigger than 255, requires changing some uint8_t members
 #define RPI_PICO_UART_MAX_ALLOWED_BUFFER_SIZE 255

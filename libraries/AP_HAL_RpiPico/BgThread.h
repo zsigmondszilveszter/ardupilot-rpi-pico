@@ -21,15 +21,25 @@
 #pragma once
 
 #include "AP_HAL_RpiPico.h"
-#include <vector>
+#include "AP_HAL/utility/functor.h"
 #include "pico/time.h"
+#include "pico/sem.h"
 
-#define CORE1_ALARM_POOL_HARDWARE_ALARM_NUM 2
-// do not change, unless you know what you are doing 
-// bigger than 255, requires changing some uint8_t members
-#define RPI_PICO_MAX_BG_TASKS 64
+FUNCTOR_TYPEDEF(BgCallable, void);
+typedef uint8_t* BgThreadPeriodicHandler;
 
-typedef void (*BgCallable)(void);
+enum bgTaskPriority{
+    PR0 = 0,
+    PR1 = 1,
+    PR2 = 2
+};
+
+typedef struct bgTask {
+    uint8_t index;
+    bgTaskPriority priority;
+    BgCallable cb;
+    uint64_t period;
+};
 
 void RpiPico::BgThreadEntryPoint();
 
@@ -37,15 +47,26 @@ void RpiPico::BgThreadEntryPoint();
 class RpiPico::BgThread {
 public:
     BgThread();
-    void init_alarm_pool(alarm_pool_t * bg_thread_alarm_pool);
 
-    bool add_periodic_background_task_us(int64_t period_usec, BgCallable callback);
+    /**
+     * must be called from core1, because core1 executes the background thread 
+     * and the irq registrations bind the irq rutines to the executing core
+     */
+    void init_alarm_pools(alarm_pool_t * bg_thread_alarm_pool_2, alarm_pool_t * bg_thread_alarm_pool_1, alarm_pool_t * bg_thread_alarm_pool_0);
 
-    void runBgCallable(uint8_t index);
+    BgThreadPeriodicHandler add_periodic_background_task_us(uint64_t period_usec, BgCallable callback, bgTaskPriority priority);
+    bool adjust_periodic_background_task_us(BgThreadPeriodicHandler h, uint64_t period_usec);
+
+    uint64_t runTask(uint8_t index);
+    bool addTaskToQueue(bgTaskPriority toPriorityQueue, BgCallable task);
 private:
-    alarm_pool_t * _alarm_pool = NULL;
+    alarm_pool_t * _alarm_pool_2 = NULL;
+    alarm_pool_t * _alarm_pool_1 = NULL;
+    alarm_pool_t * _alarm_pool_0 = NULL;
+
     uint8_t _indicies[RPI_PICO_MAX_BG_TASKS];
-    repeating_timer_t _timers[RPI_PICO_MAX_BG_TASKS];
-    BgCallable _callbacks[RPI_PICO_MAX_BG_TASKS];
     uint8_t _nr_of_tasks = 0;
+
+    bgTask _tasks[RPI_PICO_MAX_BG_TASKS];
+    semaphore_t _tasks_sem;
 };

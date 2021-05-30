@@ -25,6 +25,7 @@ if (TARGET tinyusb_device)
         empty
         pico_stdlib
         pico_multicore
+        hardware_i2c
     )
 elseif(PICO_ON_DEVICE)
     message(WARNING "not building ardupilot-rpi-pico because TinyUSB submodule is not initialized in the SDK")

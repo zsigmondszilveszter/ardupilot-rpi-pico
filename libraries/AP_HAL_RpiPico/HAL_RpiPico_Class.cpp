@@ -15,6 +15,7 @@ using namespace RpiPico;
 static Console console_over_USB;
 static UARTDriver uartBDriver = UARTDriver(0); // UART 0
 static UARTDriver uartCDriver = UARTDriver(1); // UART 1
+static I2CDeviceManager i2cDeviceManager;
 // static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
@@ -38,7 +39,7 @@ HAL_RpiPico::HAL_RpiPico() :
         nullptr,            /* no uartG */
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
-        nullptr,// &I2CDeviceManager,
+        &i2cDeviceManager,
         nullptr,// &spiDeviceManager,
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
@@ -58,15 +59,15 @@ void HAL_RpiPico::run(int argc, char* const argv[], Callbacks* callbacks) const
 {
     /* initialize all drivers and private members here.
      * up to the programmer to do this in the correct order.
-     * Scheduler should likely come first. */
-    scheduler->init();
+     */
+    sleep_ms(1);
 
-    scheduler->delay(1);
     // launch the background thread on second core (core1)
     multicore_launch_core1(RpiPico::BgThreadEntryPoint);
     // wait for it to start up
     multicore_fifo_pop_blocking();
 
+    scheduler->init();
     callbacks->setup();
     scheduler->set_system_initialized();
 

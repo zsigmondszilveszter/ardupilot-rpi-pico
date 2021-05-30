@@ -19,10 +19,13 @@
  */
 
 #include "UARTDriver.h"
+#include "BgThread.h"
 
 // Raspbery Pi Pico SDK headers
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
+
+RpiPico::BgThread& bgthread_pointer_uart = RpiPico::getBgThread();
 
 #define rpi_uart(x) uart##x
 
@@ -58,6 +61,10 @@ void RpiPico::UARTDriver::begin(uint32_t b) {
     rxFifoMutex = &rpiPico_uartRxFifoMutex[uart_get_index(uart_inst)];
     mutex_init(txFifoMutex);
     mutex_init(rxFifoMutex);
+
+    bgthread_pointer_uart.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&UARTDriver::flush, void), PR1);
+    bgthread_pointer_uart.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&UARTDriver::async_read, void), PR1);
+
     initialized_flag = true;
 }
 

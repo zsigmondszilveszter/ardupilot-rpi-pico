@@ -23,70 +23,122 @@
 
 #include "pico/time.h"
 #include "pico/multicore.h"
+#include "hardware/gpio.h"
+#include "hardware/irq.h"
 
 extern const AP_HAL::HAL& hal;
 
 RpiPico::BgThread& bgthread = RpiPico::getBgThread();
 
-// register background tasks, don't forget to add them manually to the list of background tasks
-void usbConsoleTask0(void) { ((RpiPico::Console*)(hal.console))->tusb_task(); }
-void usbConsoleTask1(void) { ((RpiPico::Console*)(hal.console))->flush(); }
-void schedulerIOTasks(void) { ((RpiPico::Scheduler*)(hal.scheduler))->run_io(); }
-void uartTask0(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->flush(); }
-void uartTask1(void) { ((RpiPico::UARTDriver*)(hal.serial(3)))->async_read(); }
-void uartTask2(void) { ((RpiPico::UARTDriver*)(hal.serial(1)))->flush(); }
-void uartTask3(void) { ((RpiPico::UARTDriver*)(hal.serial(1)))->async_read(); }
-
-
-alarm_pool_t * core1_alarm_pool;
+alarm_pool_t * core1_alarm_pool_2;
+alarm_pool_t * core1_alarm_pool_1;
+alarm_pool_t * core1_alarm_pool_0;
 
 // the core1 (second core) entry point
 void RpiPico::BgThreadEntryPoint(){
-    // init alarm pool for core1
-    core1_alarm_pool = alarm_pool_create(CORE1_ALARM_POOL_HARDWARE_ALARM_NUM, RPI_PICO_MAX_BG_TASKS);
-    // set the core1's alarm pool to the bgThread
-    bgthread.init_alarm_pool(core1_alarm_pool);
+    // the smaller the alarm pool number the bigger its priority
+    
+    // init alarm pool 2 for core1
+    core1_alarm_pool_2 = alarm_pool_create(2, RPI_PICO_MAX_BG_TASKS);
+    // init alarm pool 1 for core1
+    core1_alarm_pool_1 = alarm_pool_create(1, RPI_PICO_MAX_BG_TASKS);
+    // init alarm pool 0 for core1
+    core1_alarm_pool_0 = alarm_pool_create(0, RPI_PICO_MAX_BG_TASKS);
+    // set the core1's alarm pools in the bgThread
+    bgthread.init_alarm_pools(core1_alarm_pool_2, core1_alarm_pool_1, core1_alarm_pool_0);
 
     // init USB console
     ((RpiPico::Console*)(hal.console))->init();
 
     // let the core0 know, the core1 and USB console is initialized
     multicore_fifo_push_blocking(true);
-
-    // add background tasks
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &usbConsoleTask0);
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &usbConsoleTask1);
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &uartTask0);
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &uartTask1);
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &uartTask2);
-    bgthread.add_periodic_background_task_us(-1000, (BgCallable) &uartTask3);
 }
 
 
+static int64_t bg_thread_timer_task(alarm_id_t id, void *user_data) {
+    uint8_t index = *(uint8_t *)user_data;
+    return bgthread.runTask(index);
+}
 
-static bool general_repeating_timer_callback(struct repeating_timer *t) {
-    uint8_t index = *(uint8_t *)t->user_data;
-    bgthread.runBgCallable(index);
+RpiPico::BgThread::BgThread() 
+{
+    // 3 is the number of different task priorities
+    sem_init(&_tasks_sem, 3, 3);
+}
+
+/**
+ * must be called from core1, because core1 executes the background thread 
+ * and the irq registrations bind the irq rutines to the executing core
+ */
+void RpiPico::BgThread::init_alarm_pools(alarm_pool_t * bg_thread_alarm_pool_2, alarm_pool_t * bg_thread_alarm_pool_1, alarm_pool_t * bg_thread_alarm_pool_0)
+{
+    _alarm_pool_2 = bg_thread_alarm_pool_2;
+    _alarm_pool_1 = bg_thread_alarm_pool_1;
+    _alarm_pool_0 = bg_thread_alarm_pool_0;
+}
+
+
+// priority should be between 26 - 31 (inclusiv)
+BgThreadPeriodicHandler RpiPico::BgThread::add_periodic_background_task_us(uint64_t period_usec, BgCallable callback, bgTaskPriority priority) 
+{
+    // acquire all the 3 permits
+    sem_acquire_blocking(&_tasks_sem);
+    sem_acquire_blocking(&_tasks_sem);
+    sem_acquire_blocking(&_tasks_sem);
+
+    BgThreadPeriodicHandler pointer_to_timer_index = nullptr;
+    if (_nr_of_tasks < RPI_PICO_MAX_BG_TASKS) {
+        _indicies[_nr_of_tasks] = _nr_of_tasks;
+        
+        _tasks[_nr_of_tasks].index = _nr_of_tasks;
+        _tasks[_nr_of_tasks].priority = priority;
+        _tasks[_nr_of_tasks].cb = callback;
+        _tasks[_nr_of_tasks].period = period_usec;
+
+        // the smaller the alarm pool number the bigger its priority
+        alarm_pool_t * alarm_pool = _alarm_pool_2; // default is 2
+        switch (priority) {
+            case PR0: alarm_pool = _alarm_pool_0; break;
+            case PR1: alarm_pool = _alarm_pool_1; break;
+            case PR2: alarm_pool = _alarm_pool_2; break;
+        }
+        alarm_id_t alarm_id = alarm_pool_add_alarm_in_us(alarm_pool, period_usec, bg_thread_timer_task, (void*)&_indicies[_nr_of_tasks], true);
+        if (alarm_id > 0) {
+            pointer_to_timer_index = (BgThreadPeriodicHandler) &_indicies[_nr_of_tasks];
+            _nr_of_tasks++;
+        }
+    }
+
+    sem_release(&_tasks_sem);
+    sem_release(&_tasks_sem);
+    sem_release(&_tasks_sem);
+    return pointer_to_timer_index;
+}
+
+bool RpiPico::BgThread::adjust_periodic_background_task_us(BgThreadPeriodicHandler h, uint64_t period_usec) 
+{
+    // acquire all the 3 permits
+    sem_acquire_blocking(&_tasks_sem);
+    sem_acquire_blocking(&_tasks_sem);
+    sem_acquire_blocking(&_tasks_sem);
+
+    uint8_t index = *(uint8_t *)h;
+    _tasks[index].period = period_usec;
+
+    sem_release(&_tasks_sem);
+    sem_release(&_tasks_sem);
+    sem_release(&_tasks_sem);
+
     return true;
 }
 
-RpiPico::BgThread::BgThread() {}
-
-void RpiPico::BgThread::init_alarm_pool(alarm_pool_t * bg_thread_alarm_pool)
+uint64_t RpiPico::BgThread::runTask(uint8_t index) 
 {
-    _alarm_pool = bg_thread_alarm_pool;
-}
+    sem_acquire_blocking(&_tasks_sem);
 
-bool RpiPico::BgThread::add_periodic_background_task_us(int64_t period_usec, BgCallable callback) {
-    _indicies[_nr_of_tasks] = _nr_of_tasks;
-    _callbacks[_nr_of_tasks] = callback;
-    bool retval = alarm_pool_add_repeating_timer_us(_alarm_pool, period_usec, general_repeating_timer_callback, (void*)&_indicies[_nr_of_tasks], &_timers[_nr_of_tasks]);
-    if (retval) {
-        _nr_of_tasks++;
-    }
-    return retval;
-}
+    uint64_t reschedule = _tasks[index].period;
+    _tasks[index].cb();
 
-void RpiPico::BgThread::runBgCallable(uint8_t index) {
-    _callbacks[index]();
+    sem_release(&_tasks_sem);
+    return reschedule;
 }

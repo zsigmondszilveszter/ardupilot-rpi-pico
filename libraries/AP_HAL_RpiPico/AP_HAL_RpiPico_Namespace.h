@@ -6,8 +6,8 @@ namespace RpiPico {
     class DigitalSource;
     // class DSP;
     class GPIO;
-    // class I2CDevice;
-    // class I2CDeviceManager;
+    class I2CDevice;
+    class I2CDeviceManager;
     // class OpticalFlow;
     class RCInput;
     class RCOutput;

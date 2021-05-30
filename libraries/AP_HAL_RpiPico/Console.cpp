@@ -19,12 +19,14 @@
  */
 
 #include "Console.h"
+#include "BgThread.h"
 
 // Raspbery Pi Pico SDK headers
 #include "tusb.h"
 #include "pico/time.h"
 #include "pico/mutex.h"
 
+RpiPico::BgThread& bgthread_pointer_console = RpiPico::getBgThread();
 static mutex_t usb_console_mutex;
 
 
@@ -38,6 +40,10 @@ void RpiPico::Console::init()
     // initialize tinyusb stack
     tusb_init(); 
     mutex_init(&usb_console_mutex);
+
+    // register 1khz background tasks
+    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::tusb_task, void), PR1);
+    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::flush, void), PR1);
 
     initialized_flag = true;
 }

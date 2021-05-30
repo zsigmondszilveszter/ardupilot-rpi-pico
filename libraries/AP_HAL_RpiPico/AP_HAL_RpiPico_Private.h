@@ -6,7 +6,7 @@
 
 #include "AnalogIn.h"
 #include "GPIO.h"
-// #include "I2CDevice.h"
+#include "I2CDevice.h"
 // #include "OpticalFlow.h"
 #include "RCInput.h"
 #include "RCOutput.h"

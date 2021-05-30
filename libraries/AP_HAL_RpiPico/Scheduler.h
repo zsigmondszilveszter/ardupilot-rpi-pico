@@ -2,9 +2,6 @@
 
 #include "AP_HAL_RpiPico.h"
 
-#define RPI_PICO_MAX_TIMER_PROC 8
-#define RPI_PICO_MAX_IO_PROC 8
-
 class RpiPico::Scheduler : public AP_HAL::Scheduler {
 public:
     Scheduler();
@@ -36,4 +33,5 @@ private:
 
     bool inTimerProcesses = false;
     bool inIoProcesses = false;
+    bool reboot_requested = false;
 };
