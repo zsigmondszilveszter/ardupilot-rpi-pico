@@ -1302,6 +1302,13 @@ void AP_BLHeli::init(void)
         last_control_port = control_port;
     }
 
+#if HAL_WITH_IO_MCU
+    if (AP_BoardConfig::io_enabled()) {
+        // with IOMCU the local (FMU) channels start at 8
+        chan_offset = 8;
+    }
+#endif
+
     uint16_t mask = uint16_t(channel_mask.get());
 
     /*
@@ -1397,21 +1404,6 @@ void AP_BLHeli::init(void)
 }
 
 /*
-  implement the 8 bit CRC used by the BLHeli ESC telemetry protocol
- */
-uint8_t AP_BLHeli::telem_crc8(uint8_t crc, uint8_t crc_seed) const
-{
-    uint8_t crc_u = crc;
-    crc_u ^= crc_seed;
-
-    for (uint8_t i=0; i<8; i++) {
-        crc_u = ( crc_u & 0x80 ) ? 0x7 ^ ( crc_u << 1 ) : ( crc_u << 1 );
-    }
-
-    return crc_u;
-}
-
-/*
   read an ESC telemetry packet
  */
 void AP_BLHeli::read_telemetry_packet(void)
@@ -1425,7 +1417,7 @@ void AP_BLHeli::read_telemetry_packet(void)
     // calculate crc
     uint8_t crc = 0;
     for (uint8_t i=0; i<telem_packet_size-1; i++) {    
-        crc = telem_crc8(buf[i], crc);
+        crc = crc8_dvb(buf[i], crc, 0x07);
     }
 
     if (buf[telem_packet_size-1] != crc) {
@@ -1438,7 +1430,7 @@ void AP_BLHeli::read_telemetry_packet(void)
     const uint8_t motor_idx = motor_map[last_telem_esc];
     // we have received valid data, mark the ESC as now active
     hal.rcout->set_active_escs_mask(1<<motor_idx);
-    update_rpm(motor_idx, new_rpm);
+    update_rpm(motor_idx - chan_offset, new_rpm);
 
     TelemetryData t {
         .temperature_cdeg = int16_t(buf[0] * 100),
@@ -1447,7 +1439,7 @@ void AP_BLHeli::read_telemetry_packet(void)
         .consumption_mah = float(uint16_t((buf[5]<<8) | buf[6])),
     };
 
-    update_telem_data(motor_idx, t,
+    update_telem_data(motor_idx - chan_offset, t,
         AP_ESC_Telem_Backend::TelemetryType::CURRENT
             | AP_ESC_Telem_Backend::TelemetryType::VOLTAGE
             | AP_ESC_Telem_Backend::TelemetryType::CONSUMPTION
@@ -1492,16 +1484,20 @@ void AP_BLHeli::log_bidir_telemetry(void)
         }
     }
 
+    if (!SRV_Channels::have_digital_outputs()) {
+        return;
+    }
+
     // ask the next ESC for telemetry
     uint8_t idx_pos = last_telem_esc;
-    for (uint8_t idx = (idx_pos + 1) % num_motors;
-        idx != idx_pos;
-        idx = (idx_pos + 1) % num_motors) {
-        uint16_t mask = 1U << motor_map[idx];
-        if (SRV_Channels::have_digital_outputs(mask)) {
-            last_telem_esc = idx;
+    uint8_t idx = (idx_pos + 1) % num_motors;
+    for (; idx != idx_pos; idx = (idx_pos + 1) % num_motors) {
+        if (SRV_Channels::have_digital_outputs(1U << motor_map[idx])) {
             break;
         }
+    }
+    if (SRV_Channels::have_digital_outputs(1U << motor_map[idx])) {
+        last_telem_esc = idx;
     }
 }
 
@@ -1517,7 +1513,7 @@ void AP_BLHeli::update_telemetry(void)
         log_bidir_telemetry();
     }
 #endif
-    if (!telem_uart) {
+    if (!telem_uart || !SRV_Channels::have_digital_outputs()) {
         return;
     }
     uint32_t now = AP_HAL::micros();
@@ -1563,16 +1559,17 @@ void AP_BLHeli::update_telemetry(void)
     if (now - last_telem_request_us >= telem_rate_us) {
         // ask the next ESC for telemetry
         uint8_t idx_pos = last_telem_esc;
-        for (uint8_t idx = (idx_pos + 1) % num_motors;
-            idx != idx_pos;
-            idx = (idx_pos + 1) % num_motors) {
-            uint16_t mask = 1U << motor_map[idx];
-            if (SRV_Channels::have_digital_outputs(mask)) {
-                hal.rcout->set_telem_request_mask(mask);
-                last_telem_esc = idx;
-                last_telem_request_us = now;
+        uint8_t idx = (idx_pos + 1) % num_motors;
+        for (; idx != idx_pos; idx = (idx_pos + 1) % num_motors) {
+            if (SRV_Channels::have_digital_outputs(1U << motor_map[idx])) {
                 break;
             }
+        }
+        uint16_t mask = 1U << motor_map[idx];
+        if (SRV_Channels::have_digital_outputs(mask)) {
+            hal.rcout->set_telem_request_mask(mask);
+            last_telem_esc = idx;
+            last_telem_request_us = now;
         }
     }
 }
