@@ -12,41 +12,41 @@
 
 using namespace RpiPico;
 
+static BgThread bgthread;
 static Console console_over_USB;
 static UARTDriver uartBDriver = UARTDriver(0); // UART 0
-static UARTDriver uartCDriver = UARTDriver(1); // UART 1
+static UARTDriver uartFDriver = UARTDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
-// static SPIDeviceManager spiDeviceManager;
-// static AnalogIn analogIn;
-// static Storage storageDriver;
+static SPIDeviceManager spiDeviceManager;
+static AnalogIn analogIn;
+static Storage storageDriver;
 static GPIO gpioDriver;
-// static RCInput rcinDriver;
-// static RCOutput rcoutDriver;
+static RCInput rcinDriver;
+static RCOutput rcoutDriver;
 static Scheduler schedulerInstance;
 static Util utilInstance;
 // static OpticalFlow opticalFlowDriver;
 // static Flash flashDriver;
-static BgThread bgthread;
 
 HAL_RpiPico::HAL_RpiPico() :
     AP_HAL::HAL(
         &console_over_USB,
         &uartBDriver,
-        &uartCDriver,
+        nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
         nullptr,            /* no uartE */
-        nullptr,            /* no uartF */
+        &uartFDriver, //rcin                
         nullptr,            /* no uartG */
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
         &i2cDeviceManager,
-        nullptr,// &spiDeviceManager,
-        nullptr,// &analogIn,
-        nullptr,// &storageDriver,
+        &spiDeviceManager,
+        &analogIn,
+        &storageDriver,
         &console_over_USB, //nullptr,// &uartADriver,
         &gpioDriver,
-        nullptr,// &rcinDriver,
-        nullptr,// &rcoutDriver,
+        &rcinDriver,
+        &rcoutDriver,
         &schedulerInstance,
         &utilInstance,
         nullptr,// &opticalFlowDriver,
@@ -67,7 +67,17 @@ void HAL_RpiPico::run(int argc, char* const argv[], Callbacks* callbacks) const
     // wait for it to start up
     multicore_fifo_pop_blocking();
 
+    // register background workers
+    ((RpiPico::Console*)console)->registerBackgroundWorkers();
+    ((RpiPico::UARTDriver*)serial(3))->registerBackgroundWorkers();
+    ((RpiPico::UARTDriver*)serial(5))->registerBackgroundWorkers();
+    ((RpiPico::RCInput*)rcin)->registerBackgroundWorkers();
+
+    ((RpiPico::Console*)console)->init();
     scheduler->init();
+    // wait a couple of msec
+    scheduler->delay(100);
+    rcin->init();
     callbacks->setup();
     scheduler->set_system_initialized();
 

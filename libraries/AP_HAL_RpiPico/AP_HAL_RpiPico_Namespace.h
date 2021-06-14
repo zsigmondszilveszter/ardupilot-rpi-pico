@@ -13,9 +13,9 @@ namespace RpiPico {
     class RCOutput;
     class Scheduler;
     class Semaphore;
-    // class SPIDevice;
+    class SPIDevice;
     // class SPIDeviceDriver;
-    // class SPIDeviceManager;
+    class SPIDeviceManager;
     class Storage;
     class UARTDriver;
     class Util;

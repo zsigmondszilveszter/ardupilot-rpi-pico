@@ -21,39 +21,35 @@
 #include <AP_HAL/HAL.h>
 #include <AP_HAL/SPIDevice.h>
 
+#include "hardware/spi.h"
+
 #include "Semaphores.h"
 
-namespace Empty {
+#define RPI_PICO_SPI_SPEED_HIGH 1000
+#define RPI_PICO_SPI_SPEED_LOW 500
+
+namespace RpiPico {
 
 class SPIDevice : public AP_HAL::SPIDevice {
 public:
     SPIDevice()
     {
     }
-
+    SPIDevice(spi_inst_t * spi_inst);
     virtual ~SPIDevice() { }
 
     /* AP_HAL::Device implementation */
 
     /* See AP_HAL::Device::set_speed() */
-    bool set_speed(AP_HAL::Device::Speed speed) override
-    {
-        return true;
-    }
+    bool set_speed(AP_HAL::Device::Speed speed) override;
 
     /* See AP_HAL::Device::transfer() */
     bool transfer(const uint8_t *send, uint32_t send_len,
-                  uint8_t *recv, uint32_t recv_len) override
-    {
-        return true;
-    }
+                  uint8_t *recv, uint32_t recv_len) override;
 
     /* See AP_HAL::SPIDevice::transfer_fullduplex() */
     bool transfer_fullduplex(const uint8_t *send, uint8_t *recv,
-                             uint32_t len) override
-    {
-        return true;
-    }
+                             uint32_t len) override;
 
     /* See AP_HAL::Device::get_semaphore() */
     AP_HAL::Semaphore *get_semaphore() override
@@ -63,22 +59,18 @@ public:
 
     /* See AP_HAL::Device::register_periodic_callback() */
     AP_HAL::Device::PeriodicHandle register_periodic_callback(
-        uint32_t period_usec, AP_HAL::Device::PeriodicCb) override
-    {
-        return nullptr;
-    }
+        uint32_t period_usec, AP_HAL::Device::PeriodicCb) override;
 
 private:
     Semaphore _semaphore;
+    spi_inst_t * _spi_inst;
+    uint8_t _cs_pin;
 };
 
 class SPIDeviceManager : public AP_HAL::SPIDeviceManager {
 public:
     SPIDeviceManager() { }
-    AP_HAL::OwnPtr<AP_HAL::SPIDevice> get_device(const char *name) override
-    {
-        return AP_HAL::OwnPtr<AP_HAL::SPIDevice>(new SPIDevice());
-    }
+    AP_HAL::OwnPtr<AP_HAL::SPIDevice> get_device(const char *name) override;
 };
 
 }
