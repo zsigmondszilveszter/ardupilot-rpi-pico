@@ -23,6 +23,8 @@ public:
     void     run_timers();
     void     run_io();
 
+    bool     thread_create(AP_HAL::MemberProc, const char *name, uint32_t stack_size, priority_base base, int8_t priority) override;
+
 private:
     bool _system_initialized = false;
     uint8_t timerProcessPointer = 0;

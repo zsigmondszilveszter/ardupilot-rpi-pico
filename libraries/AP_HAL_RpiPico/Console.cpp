@@ -33,6 +33,12 @@ static mutex_t usb_console_mutex;
 RpiPico::Console::Console() 
 {}
 
+void RpiPico::Console::registerBackgroundWorkers() {
+    // register 1khz background tasks
+    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::tusb_task, void), PR0);
+    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::flush, void), PR0);
+}
+
 void RpiPico::Console::init() 
 {
     if (is_initialized()) 
@@ -41,11 +47,7 @@ void RpiPico::Console::init()
     tusb_init(); 
     mutex_init(&usb_console_mutex);
 
-    // register 1khz background tasks
-    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::tusb_task, void), PR1);
-    bgthread_pointer_console.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Console::flush, void), PR1);
-
-    initialized_flag = true;
+    _initialized_flag = true;
 }
 
 void RpiPico::Console::begin(uint32_t b) {
@@ -144,13 +146,13 @@ bool RpiPico::Console::discard_input() {
     mutex_enter_blocking(&usb_console_mutex);
     tud_cdc_read_flush();
     mutex_exit(&usb_console_mutex);
-    return true; 
+    return true;
 }
 
 size_t RpiPico::Console::write(uint8_t c) {
-    static uint64_t last_avail_time;
     if (!is_initialized()) return 0;
 
+    static uint64_t last_avail_time;
     // we must wait until we can obtain the USB resource
     mutex_enter_blocking(&usb_console_mutex);
 
@@ -173,9 +175,9 @@ size_t RpiPico::Console::write(uint8_t c) {
 }
 
 size_t RpiPico::Console::write(const uint8_t *buffer, size_t size){
-    static uint64_t last_avail_time;
     if (!is_initialized()) return 0;
 
+    static uint64_t last_avail_time;
     // we must wait until we can obtain the USB resource
     mutex_enter_blocking(&usb_console_mutex);
 

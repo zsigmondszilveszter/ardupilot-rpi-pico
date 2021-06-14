@@ -40,7 +40,7 @@ public:
 
     void flush() override;
 
-    bool is_initialized() override { return initialized_flag; };
+    bool is_initialized() override { return _initialized_flag; };
     void set_blocking_writes(bool blocking) override;
     bool tx_pending() override;
 
@@ -54,7 +54,7 @@ public:
     /*  Rpi Pico implementations of Print virtual methods */
     size_t write(uint8_t c) override;
     size_t write(const uint8_t *buffer, size_t size) override;
-    
+    virtual void registerBackgroundWorkers();
 protected:
-    bool initialized_flag = false;
+    bool _initialized_flag = false;
 };

@@ -47,9 +47,6 @@ void RpiPico::BgThreadEntryPoint(){
     // set the core1's alarm pools in the bgThread
     bgthread.init_alarm_pools(core1_alarm_pool_2, core1_alarm_pool_1, core1_alarm_pool_0);
 
-    // init USB console
-    ((RpiPico::Console*)(hal.console))->init();
-
     // let the core0 know, the core1 and USB console is initialized
     multicore_fifo_push_blocking(true);
 }
@@ -82,9 +79,9 @@ void RpiPico::BgThread::init_alarm_pools(alarm_pool_t * bg_thread_alarm_pool_2, 
 BgThreadPeriodicHandler RpiPico::BgThread::add_periodic_background_task_us(uint64_t period_usec, BgCallable callback, bgTaskPriority priority) 
 {
     // acquire all the 3 permits
-    sem_acquire_blocking(&_tasks_sem);
-    sem_acquire_blocking(&_tasks_sem);
-    sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
 
     BgThreadPeriodicHandler pointer_to_timer_index = nullptr;
     if (_nr_of_tasks < RPI_PICO_MAX_BG_TASKS) {
@@ -109,25 +106,25 @@ BgThreadPeriodicHandler RpiPico::BgThread::add_periodic_background_task_us(uint6
         }
     }
 
-    sem_release(&_tasks_sem);
-    sem_release(&_tasks_sem);
-    sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
     return pointer_to_timer_index;
 }
 
 bool RpiPico::BgThread::adjust_periodic_background_task_us(BgThreadPeriodicHandler h, uint64_t period_usec) 
 {
     // acquire all the 3 permits
-    sem_acquire_blocking(&_tasks_sem);
-    sem_acquire_blocking(&_tasks_sem);
-    sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
+    // sem_acquire_blocking(&_tasks_sem);
 
     uint8_t index = *(uint8_t *)h;
     _tasks[index].period = period_usec;
 
-    sem_release(&_tasks_sem);
-    sem_release(&_tasks_sem);
-    sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
+    // sem_release(&_tasks_sem);
 
     return true;
 }

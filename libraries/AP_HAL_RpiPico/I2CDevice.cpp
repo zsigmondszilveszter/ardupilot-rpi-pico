@@ -57,12 +57,12 @@ bool RpiPico::I2CDevice::transfer(const uint8_t *send, uint32_t send_len,
     uint32_t received = 0;
     uint8_t retries = 0;
     while ((sent_out < send_len || received < recv_len) && retries < _retries) {
-        int write_result = i2c_write_blocking(_i2c_inst, _address, send + sent_out, send_len, false);
+        int write_result = i2c_write_blocking(_i2c_inst, _address, send + sent_out, send_len - sent_out, false);
         if (write_result != PICO_ERROR_GENERIC) {
             sent_out += write_result;
         }
         
-        int read_result = i2c_read_blocking(_i2c_inst, _address, recv + received, recv_len, false);
+        int read_result = i2c_read_blocking(_i2c_inst, _address, recv + received, recv_len - received, false);
         if (read_result != PICO_ERROR_GENERIC) {
             received += read_result;
         }

@@ -33,8 +33,8 @@ void Scheduler::init()
     // 1khz timer for timer processes, they run on the main thread (core0)
     add_repeating_timer_us(-1000, repeating_1KHz_timer_callback, NULL, &KHz1_rt);
 
-    // 500hz io tasks
-    bgthread_pointer_scheduler.add_periodic_background_task_us(2000, FUNCTOR_BIND_MEMBER(&Scheduler::run_io, void), PR2);
+    // 1000hz io tasks
+    bgthread_pointer_scheduler.add_periodic_background_task_us(1000, FUNCTOR_BIND_MEMBER(&Scheduler::run_io, void), PR1);
 }
 
 void Scheduler::delay(uint16_t ms)
@@ -128,4 +128,14 @@ void Scheduler::run_io()
         }
     }
     inIoProcesses = false;
+}
+
+/*
+  create a new thread
+*/
+bool Scheduler::thread_create(AP_HAL::MemberProc proc, const char *name, uint32_t stack_size, priority_base base, int8_t priority)
+{
+    // basically we only create a new background task scheduled in every 1ms 
+    // bgthread_pointer_scheduler.add_periodic_background_task_us(1000, proc, PR2);
+    return true;
 }

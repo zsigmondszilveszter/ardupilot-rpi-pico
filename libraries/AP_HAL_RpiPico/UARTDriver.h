@@ -36,6 +36,7 @@ public:
 
     virtual void clearTxFIFO();
     virtual void async_read();
+    virtual void registerBackgroundWorkers();
 protected:
     uart_inst_t * uart_inst;
     bool initialized_flag = false;
