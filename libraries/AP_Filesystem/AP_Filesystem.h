@@ -28,7 +28,7 @@
 #define MAX_NAME_LEN 255
 #endif
 
-#if (CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS) || (CONFIG_HAL_BOARD == HAL_BOARD_ESP32)
+#if (CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS) || (CONFIG_HAL_BOARD == HAL_BOARD_ESP32) || (CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS)
 #define DT_REG 0
 #define DT_DIR 1
 #define DT_LNK 10
@@ -65,6 +65,10 @@ struct dirent {
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_ESP32
 #include "AP_Filesystem_ESP32.h"
+#endif
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
+#include "AP_Filesystem_rp2040ChibiOS.h"
 #endif
 
 #include "AP_Filesystem_backend.h"

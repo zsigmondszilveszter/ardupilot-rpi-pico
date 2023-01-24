@@ -35,6 +35,11 @@ int errno;
 static AP_Filesystem_ESP32 fs_local;
 #endif // HAL_BOARD_ESP32
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
+#include "AP_Filesystem_rp2040ChibiOS.h"
+static AP_Filesystem_rp2040ChibiOS fs_local;
+#endif // HAL_BOARD_RP2040CHIBIOS
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_LINUX || CONFIG_HAL_BOARD == HAL_BOARD_SITL
 #include "AP_Filesystem_posix.h"
 static AP_Filesystem_Posix fs_local;
