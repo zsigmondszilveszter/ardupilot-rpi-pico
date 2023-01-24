@@ -552,9 +552,20 @@ def add_dynamic_boards_esp32():
         if os.path.exists(hwdef):
             newclass = type(d, (esp32,), {'name': d})
 
+def add_dynamic_boards_rp2040ChibiOS():
+    '''add boards based on existance of hwdef.dat in subdirectories for RP2040 ChibiOS'''
+    dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_rp2040ChibiOS/hwdef'))
+    for d in dirlist:
+        if d in _board_classes.keys():
+            continue
+        hwdef = os.path.join(dirname, d, 'hwdef.dat')
+        if os.path.exists(hwdef):
+            newclass = type(d, (rp2040ChibiOS,), {'name': d})
+
 def get_boards_names():
     add_dynamic_boards_chibios()
     add_dynamic_boards_esp32()
+    add_dynamic_boards_rp2040ChibiOS()
 
     return sorted(list(_board_classes.keys()), key=str.lower)
 
@@ -696,7 +707,6 @@ class sitl(Board):
 
         env.AP_LIBRARIES += [
             'AP_HAL_SITL',
-            'AP_CSVReader',
         ]
 
         if not cfg.env.AP_PERIPH:
@@ -891,6 +901,211 @@ class esp32(Board):
     def get_name(self):
         return self.__class__.__name__
 
+class rp2040ChibiOS(Board):
+    abstract = True
+    toolchain = 'arm-none-eabi'
+
+    def configure_env(self, cfg, env):
+        # if hasattr(self, 'hwdef'):
+        #     cfg.env.HWDEF = self.hwdef
+        super(rp2040ChibiOS, self).configure_env(cfg, env)
+
+        cfg.load('rp2040')
+        env.BOARD = self.name
+
+        env.DEFINES.update(
+            CONFIG_HAL_BOARD = 'HAL_BOARD_RP2040CHIBIOS',
+            AP_SIM_ENABLED = 0,
+            HAVE_STD_NULLPTR_T = 0,
+            USE_LIBC_REALLOC = 0,
+        )
+
+        env.AP_LIBRARIES += [
+            'AP_HAL_rp2040ChibiOS',
+        ]
+
+        cfg.env.CPU_FLAGS = [
+            "-mcpu=cortex-m0plus",
+            "-mfloat-abi=soft"
+        ]
+        # TODO(szilveszter) use floating point improvements from the PICO SDK
+
+        # make board name available for USB IDs
+        env.CHIBIOS_BOARD_NAME = 'HAL_BOARD_NAME="%s"' % self.name
+        env.HAL_MAX_STACK_FRAME_SIZE = 'HAL_MAX_STACK_FRAME_SIZE=%d' % 1300 # set per Wframe-larger-than, ensure its same
+        env.CFLAGS += cfg.env.CPU_FLAGS + [
+            '-Wlogical-op',
+            '-Wframe-larger-than=1300',
+            '-fsingle-precision-constant',
+            '-Wno-attributes',
+            '-fno-exceptions',
+            '-Wall',
+            '-Wextra',
+            '-Wno-sign-compare',
+            '-Wfloat-equal',
+            '-Wpointer-arith',
+            '-Wmissing-declarations',
+            '-Wno-unused-parameter',
+            '-Werror=array-bounds',
+            '-Wfatal-errors',
+            '-Werror=uninitialized',
+            '-Werror=init-self',
+            '-Werror=unused-but-set-variable',
+            '-Wno-missing-field-initializers',
+            '-Wno-trigraphs',
+            '-fno-strict-aliasing',
+            '-fomit-frame-pointer',
+            '-falign-functions=16',
+            '-ffunction-sections',
+            '-fdata-sections',
+            '-fno-strength-reduce',
+            '-fno-builtin-printf',
+            '-fno-builtin-fprintf',
+            '-fno-builtin-vprintf',
+            '-fno-builtin-vfprintf',
+            '-fno-builtin-puts',
+            '-mno-thumb-interwork',
+            '-mthumb',
+            '--specs=nano.specs',
+            '--specs=nosys.specs',
+            '-D__USE_CMSIS',
+            '-Werror=deprecated-declarations',
+            '-DNDEBUG=1'
+        ]
+        if not cfg.options.Werror:
+            env.CFLAGS += [
+            '-Wno-error=double-promotion',
+            '-Wno-error=missing-declarations',
+            '-Wno-error=float-equal',
+            '-Wno-error=cpp',
+            ]
+
+        env.CXXFLAGS += env.CFLAGS + [
+            '-fno-rtti',
+            '-fno-threadsafe-statics',
+        ]
+        env.CFLAGS += [
+            '-std=c11'
+        ]
+
+        cfg.env.PROCESS_STACK = "0x400"
+        cfg.env.MAIN_STACK = "0x400"
+
+
+        bldnode = cfg.bldnode.make_node("rp2040ChibiOS")
+        env.BUILDROOT = bldnode.make_node('').abspath()
+        env.LINKFLAGS = cfg.env.CPU_FLAGS + [
+            '-fomit-frame-pointer',
+            '-falign-functions=16',
+            '-ffunction-sections',
+            '-fdata-sections',
+            '-u_port_lock',
+            '-u_port_unlock',
+            '-u_exit',
+            '-u_kill',
+            '-u_getpid',
+            '-u_errno',
+            '-uchThdExit',
+            '-fno-common',
+            '-nostartfiles',
+            '-mno-thumb-interwork',
+            '-mthumb',
+            '--specs=nano.specs',
+            '--specs=nosys.specs',
+            '-L%s' % env.BUILDROOT,
+            '-L%s' % cfg.srcnode.make_node('modules/rp2040ChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
+            '-L%s' % cfg.srcnode.make_node('libraries/AP_HAL_rp2040ChibiOS/hwdef/rp2040-pico/').abspath(),
+            '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=RP2040_FLASH.ld,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
+        ]
+
+        if cfg.env.DEBUG:
+            env.CFLAGS += [
+                '-gdwarf-4',
+                '-g3',
+            ]
+            env.LINKFLAGS += [
+                '-gdwarf-4',
+                '-g3',
+            ]
+
+        # if cfg.env.ENABLE_ASSERTS:
+        #     cfg.msg("Enabling ChibiOS asserts", "yes")
+        #     env.CFLAGS += [ '-DHAL_CHIBIOS_ENABLE_ASSERTS' ]
+        #     env.CXXFLAGS += [ '-DHAL_CHIBIOS_ENABLE_ASSERTS' ]
+        # else:
+        #     cfg.msg("Enabling ChibiOS asserts", "no")
+
+
+        # if cfg.env.SAVE_TEMPS:
+        #     env.CXXFLAGS += [ '-S', '-save-temps=obj' ]
+
+        if cfg.options.disable_watchdog:
+            cfg.msg("Disabling Watchdog", "yes")
+            env.CFLAGS += [ '-DDISABLE_WATCHDOG' ]
+            env.CXXFLAGS += [ '-DDISABLE_WATCHDOG' ]
+        else:
+            cfg.msg("Disabling Watchdog", "no")
+
+        if cfg.env.ENABLE_MALLOC_GUARD:
+            cfg.msg("Enabling malloc guard", "yes")
+            env.CFLAGS += [ '-DHAL_CHIBIOS_ENABLE_MALLOC_GUARD' ]
+            env.CXXFLAGS += [ '-DHAL_CHIBIOS_ENABLE_MALLOC_GUARD' ]
+        else:
+            cfg.msg("Enabling malloc guard", "no")
+            
+        # if cfg.env.ENABLE_STATS:
+        #     cfg.msg("Enabling ChibiOS thread statistics", "yes")
+        #     env.CFLAGS += [ '-DHAL_ENABLE_THREAD_STATISTICS' ]
+        #     env.CXXFLAGS += [ '-DHAL_ENABLE_THREAD_STATISTICS' ]
+        # else:
+        #     cfg.msg("Enabling ChibiOS thread statistics", "no")
+
+        # if cfg.env.SIM_ENABLED:
+        #     env.DEFINES.update(
+        #         AP_SIM_ENABLED = 1,
+        #     )
+        #     env.AP_LIBRARIES += [
+        #         'SITL',
+        #     ]
+        # else:
+        #     env.DEFINES.update(
+        #         AP_SIM_ENABLED = 0,
+        #     )
+
+        env.LIB += ['gcc', 'm']
+
+        # whitelist of compilers which we should build with -Werror
+        gcc_whitelist = [
+            ('4','9','3'),
+            ('6','3','1'),
+            ('9','2','1'),
+            ('9','3','1'),
+            ('10','2','1'),
+            ('10','3','1'),
+            ('12','2','0')
+        ]
+
+        if cfg.options.Werror or cfg.env.CC_VERSION in gcc_whitelist:
+            cfg.msg("Enabling -Werror", "yes")
+            if '-Werror' not in env.CXXFLAGS:
+                env.CXXFLAGS += [ '-Werror' ]
+        else:
+            cfg.msg("Enabling -Werror", "no", color='YELLOW')
+
+    def build(self, bld):
+        
+        super(rp2040ChibiOS, self).build(bld)
+        bld.load('rp2040')
+        
+        # Avoid infinite recursion
+        bld.options.upload = False
+
+    def pre_build(self, bld):
+        '''pre-build hook that gets called before dynamic sources'''
+        super(rp2040ChibiOS, self).pre_build(bld)
+
+    def get_name(self):
+        return self.__class__.__name__
 
 class chibios(Board):
     abstract = True
