@@ -39,3 +39,7 @@
 	path = modules/Micro-CDR
 	url = https://github.com/ardupilot/Micro-CDR.git
 	branch = master
+[submodule "modules/rp2040ChibiOS"]
+	path = modules/rp2040ChibiOS
+	url = https://github.com/zsigmondszilveszter/ChibiOS
+	branch = rp2040-chibios-ardupilot
