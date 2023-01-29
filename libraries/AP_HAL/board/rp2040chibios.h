@@ -42,13 +42,13 @@
 #define RP2040_SPI1_CS_0_GPIO_PIN 13
 
 // UART
-#define RP2040_UART0_TX_GPIO_PIN 0
-#define RP2040_UART0_RX_GPIO_PIN 1
-#define RP2040_UART1_TX_GPIO_PIN 4
-#define RP2040_UART1_RX_GPIO_PIN 5
+#define RP2040_UART0_TX_GPIO_PIN 0U
+#define RP2040_UART0_RX_GPIO_PIN 1U
+#define RP2040_UART1_TX_GPIO_PIN 4U
+#define RP2040_UART1_RX_GPIO_PIN 5U
 // default UART FIFO sizes, max allowed is 255 (see below) (uint8_t limits)
-#define RP2040_UART_TX_FIFO_SIZE 64
-#define RP2040_UART_RX_FIFO_SIZE 64
+#define RP2040_UART_TX_FIFO_SIZE 255
+#define RP2040_UART_RX_FIFO_SIZE 255
 
 
 #define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))

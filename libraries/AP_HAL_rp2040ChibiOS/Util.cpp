@@ -19,6 +19,7 @@
  */
 
 #include <AP_Math/AP_Math.h>
+#include <AP_InternalError/AP_InternalError.h>
 
 #include "Util.h"
 

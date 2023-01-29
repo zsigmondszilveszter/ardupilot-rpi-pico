@@ -22,8 +22,8 @@
 using namespace Rp2040ChibiOS;
 
 // static Console console_over_USB;
-// static UARTDriver uartBDriver; // UART 0
-// static UARTDriver uartFDriver = UARTDriver(1); // UART 1
+static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
+static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 // static I2CDeviceManager i2cDeviceManager;
 // static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
@@ -39,11 +39,11 @@ static Rp2040ChibiOS::Util utilInstance;
 HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
     AP_HAL::HAL(
         nullptr,// &console_over_USB,
-        nullptr, //&uartBDriver,
+        &uartBDriver,
         nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
         nullptr,            /* no uartE */
-        nullptr,// &uartFDriver, //rcin                
+        &uartFDriver, //rcin                
         nullptr,            /* no uartG */
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
@@ -65,6 +65,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr)    // no CAN       
 {}
 
+static bool start_core_1 = false;
 static bool thread_running = false;        /**< Daemon status flag */
 static thread_t* daemon_task;              /**< Handle of daemon task / thread */
 extern const AP_HAL::HAL& hal;
@@ -104,6 +105,8 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      * Scheduler should likely come first. */
     hal.scheduler->init();
 
+    start_core_1 = true;
+
      /*
       run setup() at low priority to ensure CLI doesn't hang the
       system, and to allow initial sensor read loops to run
@@ -112,6 +115,7 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
 
     schedulerInstance.hal_initialized();
     callbacks->setup();
+    
 
 
 #if !defined(DISABLE_WATCHDOG)
@@ -154,6 +158,7 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
         schedulerInstance.watchdog_pat();
     }
     thread_running = false;
+    start_core_1 = false;
 }
 
 const AP_HAL::HAL& AP_HAL::get_HAL() {
@@ -172,9 +177,17 @@ extern "C" {
         chSysUnlock();
 
         // Wait until the scheduler is initialized on core0
+        while (!start_core_1) {
+            chThdSleepMicroseconds(10);
+        }
+
         Rp2040ChibiOS::Scheduler * scheduler = (Rp2040ChibiOS::Scheduler *) hal.scheduler;
-        while (! scheduler->is_hal_initialized());
         scheduler->init_core1();
+
+        Rp2040ChibiOS::UARTDriver * uart0 = (Rp2040ChibiOS::UARTDriver *) hal.serial(3);
+        uart0->startThreadOnCore1();
+        Rp2040ChibiOS::UARTDriver * uart1 = (Rp2040ChibiOS::UARTDriver *) hal.serial(5);
+        uart1->startThreadOnCore1();
 
         while(true) {
             chThdSleepMilliseconds(1000);

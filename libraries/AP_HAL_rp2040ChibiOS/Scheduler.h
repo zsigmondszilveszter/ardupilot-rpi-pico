@@ -82,7 +82,7 @@ public:
     void watchdog_pat(void);
 
 private:
-    bool _initialized;
+    volatile bool _initialized;
     volatile bool _hal_initialized;
     AP_HAL::Proc _failsafe;
     bool _called_boost;
