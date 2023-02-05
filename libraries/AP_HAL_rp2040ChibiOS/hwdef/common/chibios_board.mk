@@ -257,7 +257,7 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS =
+ULIBS = bs2_default_padded_checksummed.S
 
 #
 # End of user defines

@@ -292,10 +292,10 @@ endif
 $(BUILDDIR)/$(PROJECT).elf: $(OBJS) $(LDSCRIPT)
 ifeq ($(USE_VERBOSE_COMPILE),yes)
 	@echo
-	$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@ bs2_default_padded_checksummed.S
+	$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@
 else
 	@echo Linking $@
-	@$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@ bs2_default_padded_checksummed.S
+	@$(LD) $(OBJS) $(LDFLAGS) $(LIBS) -o $@
 endif
 
 %.hex: %.elf

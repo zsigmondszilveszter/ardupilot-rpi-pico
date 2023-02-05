@@ -18,7 +18,7 @@ ENTRY(Reset_Handler)
 
 SECTIONS
 {
-    .vectors :
+    .vectors : ALIGN(256)
     {
         __textvectors_base__ = LOADADDR(.vectors);
         __vectors_base__ = .;
