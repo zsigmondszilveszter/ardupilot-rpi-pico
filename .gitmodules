@@ -43,3 +43,7 @@
 	path = modules/rp2040ChibiOS
 	url = https://github.com/zsigmondszilveszter/ChibiOS
 	branch = rp2040-chibios-ardupilot
+[submodule "modules/ChibiOS-Contrib"]
+	path = modules/ChibiOS-Contrib
+	url = https://github.com/ChibiOS/ChibiOS-Contrib.git
+	branch = chibios-21.11.x
