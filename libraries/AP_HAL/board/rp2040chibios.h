@@ -50,8 +50,8 @@
 #define RP2040_UART_TX_FIFO_SIZE 128
 #define RP2040_UART_RX_FIFO_SIZE 128
 // default USB CDC FIFO sizes
-#define RP2040_USB_CDC_TX_FIFO_SIZE 255
-#define RP2040_USB_CDC_RX_FIFO_SIZE 255
+#define RP2040_USB_CDC_TX_FIFO_SIZE 512
+#define RP2040_USB_CDC_RX_FIFO_SIZE 512
 
 
 #define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))

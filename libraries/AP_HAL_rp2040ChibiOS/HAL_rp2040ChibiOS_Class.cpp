@@ -20,7 +20,7 @@
 
 using namespace Rp2040ChibiOS;
 
-// static Console console_over_USB;
+static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
 static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 // static I2CDeviceManager i2cDeviceManager;
@@ -37,7 +37,7 @@ static Rp2040ChibiOS::Util utilInstance;
 
 HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
     AP_HAL::HAL(
-        nullptr,// &console_over_USB,
+        &console_over_USB,
         &uartBDriver,
         nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
@@ -175,6 +175,8 @@ extern "C" {
         /* It is alive now. */
         chSysUnlock();
 
+        usb_initialise();
+
         // Wait until the scheduler is initialized on core0
         while (!start_core_1) {
             chThdSleepMicroseconds(10);
@@ -183,10 +185,16 @@ extern "C" {
         Rp2040ChibiOS::Scheduler * scheduler = (Rp2040ChibiOS::Scheduler *) hal.scheduler;
         scheduler->init_core1();
 
+        Rp2040ChibiOS::UsbCdcConsole * usbCdcConsole = (Rp2040ChibiOS::UsbCdcConsole *) hal.serial(0);
+        usbCdcConsole->writeThread();
+        usbCdcConsole->readThread();
+
         Rp2040ChibiOS::UARTDriver * uart0 = (Rp2040ChibiOS::UARTDriver *) hal.serial(3);
-        uart0->startThreadOnCore1();
+        uart0->writeThread();
+        uart0->readThread();
         Rp2040ChibiOS::UARTDriver * uart1 = (Rp2040ChibiOS::UARTDriver *) hal.serial(5);
-        uart1->startThreadOnCore1();
+        uart1->writeThread();
+        uart1->readThread();
 
         while(true) {
             chThdSleepMilliseconds(1000);

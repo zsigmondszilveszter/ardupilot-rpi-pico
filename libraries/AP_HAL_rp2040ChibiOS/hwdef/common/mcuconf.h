@@ -50,6 +50,7 @@
 #define RP_IRQ_UART1_PRIORITY               3
 #define RP_IRQ_SPI0_PRIORITY                2
 #define RP_IRQ_SPI1_PRIORITY                2
+#define RP_IRQ_USB0_PRIORITY                2
 
 /*
  * SIO driver system settings.
@@ -69,5 +70,14 @@
 #define RP_SPI_SPI0_DMA_PRIORITY            1
 #define RP_SPI_SPI1_DMA_PRIORITY            1
 #define RP_SPI_DMA_ERROR_HOOK(spip)
+
+/*
+ * USB driver system settings.
+ */
+#define RP_USB_USE_USBD0                    TRUE
+#define RP_USB_FORCE_VBUS_DETECT            TRUE
+#define RP_USE_EXTERNAL_VBUS_DETECT         FALSE
+#define RP_USB_USE_SOF_INTR                 TRUE
+#define RP_USB_USE_ERROR_DATA_SEQ_INTR      TRUE
 
 #endif /* MCUCONF_H */

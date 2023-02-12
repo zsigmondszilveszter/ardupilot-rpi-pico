@@ -20,4 +20,5 @@ namespace Rp2040ChibiOS {
     class UARTDriver;
     class Util;
     // class Flash;
+    class UsbCdcConsole;
 }

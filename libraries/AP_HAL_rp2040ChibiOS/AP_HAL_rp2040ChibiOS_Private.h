@@ -16,5 +16,6 @@
 #include "Storage.h"
 #include "UARTDriver.h"
 #include "Util.h"
+#include "UsbCdcConsole.h"
 // #include "Flash.h"
 // #include "DSP.h"

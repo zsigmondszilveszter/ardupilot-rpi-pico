@@ -1,9 +1,5 @@
 #include "UARTDriver.h"
 
-
-extern const AP_HAL::HAL& hal;
-
-
 #define UART_THREAD_PRIORITY  LOWPRIO
 
 #ifndef UART_WRITE_THD_WA_SIZE
@@ -13,6 +9,8 @@ extern const AP_HAL::HAL& hal;
 #ifndef UART_READ_THD_WA_SIZE
 #define UART_READ_THD_WA_SIZE RP2040_UART_RX_FIFO_SIZE + 32
 #endif
+
+extern const AP_HAL::HAL& hal;
 
 THD_WORKING_AREA(_uart_write_thread_wa_0, UART_WRITE_THD_WA_SIZE);
 THD_WORKING_AREA(_uart_write_thread_wa_1, UART_WRITE_THD_WA_SIZE);
@@ -95,11 +93,9 @@ void Rp2040ChibiOS::UARTDriver::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
         txS = MAX_UART_TX_FIFO_SIZE;
     }
     if (rxS != rxFIFO.get_size()) {
-        // _rx_initialised = false;
         rxFIFO.set_size(rxS);
     }
     if (txS != txFIFO.get_size()) {
-        // _tx_initialised = false;
         txFIFO.set_size(txS);
     }
 
@@ -142,10 +138,8 @@ void Rp2040ChibiOS::UARTDriver::end() {
     initialized_flag = false;
 }
 
-void Rp2040ChibiOS::UARTDriver::flush() { _flush(); }
-
-uint8_t Rp2040ChibiOS::UARTDriver::_flush(void) {
-    if (!is_initialized()) return 0;
+void Rp2040ChibiOS::UARTDriver::flush(void) {
+    if (!is_initialized()) return;
 
     WITH_SEMAPHORE(_txUartMutex);
 
@@ -165,7 +159,6 @@ uint8_t Rp2040ChibiOS::UARTDriver::_flush(void) {
             break;
         }
     }
-    return txFIFO.available();
 }
 
 void Rp2040ChibiOS::UARTDriver::async_read() {
@@ -217,6 +210,7 @@ uint32_t Rp2040ChibiOS::UARTDriver::txspace() {
 
     return txFIFO.space();
 }
+
 int16_t Rp2040ChibiOS::UARTDriver::read() { 
     if (!is_initialized()) return 0;
 
@@ -227,6 +221,15 @@ int16_t Rp2040ChibiOS::UARTDriver::read() {
         return -1;
     }
     return ret;
+}
+
+ssize_t Rp2040ChibiOS::UARTDriver::read(uint8_t *buffer, uint16_t count)
+{
+    if (!is_initialized()) return 0;
+
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    return rxFIFO.read(buffer, count);
 }
 
 bool Rp2040ChibiOS::UARTDriver::discard_input() {
@@ -301,11 +304,9 @@ void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
     asprintf(&thread_name, "uart_write_thread_%d", uart->driverSerialNr());
     chRegSetThreadName(thread_name);
 
-    uint16_t delay = 0;
     while (true) {
-        // delay less if there are elements left in the TX FIFO
-        delay =  uart->_flush() ? 10 : 1000;
-        hal.scheduler->delay_microseconds(delay);
+        uart->flush();
+        hal.scheduler->delay_microseconds(1000);
     }
 }
 

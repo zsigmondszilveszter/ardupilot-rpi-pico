@@ -114,6 +114,7 @@ def configureChibiOS(cfg):
 
     env.CH_ROOT = srcpath('modules/rp2040ChibiOS')
     # env.CC_ROOT = srcpath('modules/CrashDebug/CrashCatcher')
+    env.CH_CONTRIB_ROOT = srcpath('modules/ChibiOS-Contrib')
     env.AP_HAL_ROOT = srcpath('libraries/AP_HAL_rp2040ChibiOS')
     env.BUILDDIR = bldpath('modules/rp2040ChibiOS')
     env.BUILDROOT = bldpath('')
@@ -122,6 +123,7 @@ def configureChibiOS(cfg):
 
     # relative paths to pass to make, relative to directory that make is run from
     env.CH_ROOT_REL = os.path.relpath(env.CH_ROOT, env.BUILDROOT)
+    env.CH_CONTRIB_ROOT_REL = os.path.relpath(env.CH_CONTRIB_ROOT, env.BUILDROOT)
     # env.CC_ROOT_REL = os.path.relpath(env.CC_ROOT, env.BUILDROOT)
     env.AP_HAL_REL = os.path.relpath(env.AP_HAL_ROOT, env.BUILDROOT)
     env.BUILDDIR_REL = os.path.relpath(env.BUILDDIR, env.BUILDROOT)
@@ -159,7 +161,8 @@ def build(bld):
 def buildChibiOS(bld):
     bld(
         # create the file modules/ChibiOS/include_dirs
-        rule="touch Makefile && BUILDDIR=${BUILDDIR_REL} CHIBIOS=${CH_ROOT_REL} AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${MAKE} pass -f '${BOARD_MK}'",
+        rule="touch Makefile && BUILDDIR=${BUILDDIR_REL} CHIBIOS=${CH_ROOT_REL} CHIBIOS_CONTRIB=${CH_CONTRIB_ROOT_REL} " + 
+            "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${MAKE} pass -f '${BOARD_MK}'",
         group='dynamic_sources',
         target=bld.bldnode.find_or_declare('modules/rp2040ChibiOS/include_dirs')
     )
@@ -176,7 +179,9 @@ def buildChibiOS(bld):
     else:
         ch_task = bld(
             # build libch.a from ChibiOS sources and hwdef.h
-            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${HAL_MAX_STACK_FRAME_SIZE} '${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
+            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' CHIBIOS_CONTRIB=${CH_CONTRIB_ROOT_REL} " + 
+                "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${HAL_MAX_STACK_FRAME_SIZE} " +
+                "'${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
             group='dynamic_sources',
             source=common_src,
             target=bld.bldnode.find_or_declare('modules/rp2040ChibiOS/libch.a')

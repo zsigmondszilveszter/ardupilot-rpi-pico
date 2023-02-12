@@ -103,14 +103,15 @@ PROJECT = ch
 # Target settings.
 MCU  = cortex-m0plus
 
-# Imported source files and paths
+# Imported source files and 
+    bld.env.LIBPATH += ['modules/ChibiOS-Contrib/']paths
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
 # Startup files.
 include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_rp2040.mk
 # HAL-OSAL files (optional).
-include $(CHIBIOS)/os/hal/hal.mk
-include $(CHIBIOS)/os/hal/ports/RP/RP2040/platform.mk
+include $(CHIBIOS_CONTRIB)/os/hal/hal.mk
+include $(CHIBIOS_CONTRIB)/os/hal/ports/RP/RP2040/platform.mk
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
@@ -138,6 +139,7 @@ CSRC += $(HWDEF)/common/hrt.c \
 	   $(HWDEF)/common/malloc.c \
      $(HWDEF)/common/board.c \
      $(HWDEF)/common/rp2040_util.c \
+     $(HWDEF)/common/usbcfg.c
 
 #	   $(TESTSRC) \
 #	   test.c
