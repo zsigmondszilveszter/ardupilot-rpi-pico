@@ -1,19 +1,23 @@
 #include "UARTDriver.h"
-#include <AP_Common/ExpandingString.h>
 
-#include <AP_Math/AP_Math.h>
+
+extern const AP_HAL::HAL& hal;
 
 
 #define UART_THREAD_PRIORITY  LOWPRIO
 
-#ifndef UART_THD_WA_SIZE
-#define UART_THD_WA_SIZE 288
+#ifndef UART_WRITE_THD_WA_SIZE
+#define UART_WRITE_THD_WA_SIZE RP2040_UART_TX_FIFO_SIZE + 32
 #endif
 
-extern const AP_HAL::HAL& hal;
+#ifndef UART_READ_THD_WA_SIZE
+#define UART_READ_THD_WA_SIZE RP2040_UART_RX_FIFO_SIZE + 32
+#endif
 
-THD_WORKING_AREA(_uart_thread_wa_0, UART_THD_WA_SIZE);
-THD_WORKING_AREA(_uart_thread_wa_1, UART_THD_WA_SIZE);
+THD_WORKING_AREA(_uart_write_thread_wa_0, UART_WRITE_THD_WA_SIZE);
+THD_WORKING_AREA(_uart_write_thread_wa_1, UART_WRITE_THD_WA_SIZE);
+THD_WORKING_AREA(_uart_read_thread_wa_0, UART_READ_THD_WA_SIZE);
+THD_WORKING_AREA(_uart_read_thread_wa_1, UART_READ_THD_WA_SIZE);
 
 Rp2040ChibiOS::UARTDriver::UARTDriver(int8_t serial_num) {
     _serial_num = serial_num;
@@ -30,24 +34,44 @@ Rp2040ChibiOS::UARTDriver::UARTDriver(int8_t serial_num) {
             break;
         default: break;
     }
-    chMtxObjectInit(&uartMutex);
 }
 
-void Rp2040ChibiOS::UARTDriver::startThreadOnCore1() {
-    // setup the uart worker thread to flush the TX FIFO and read the RX FIFO
-    switch (_serial_num) {
+void Rp2040ChibiOS::UARTDriver::writeThread() {
+    // setup the uart worker thread to flush the TX FIFO
+    switch (driverSerialNr()) {
         case 0: 
-            _uart_thread_ctx = chThdCreateStatic(_uart_thread_wa_0,
-                     sizeof(_uart_thread_wa_0),
+            _uart_write_thread_ctx = chThdCreateStatic(_uart_write_thread_wa_0,
+                     sizeof(_uart_write_thread_wa_0),
                      UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_thread,             /* Thread function.     */
+                     _uart_write_thread,             /* Thread function.     */
                      this);                     /* Thread parameter.    */
             break;
         case 1: 
-            _uart_thread_ctx = chThdCreateStatic(_uart_thread_wa_1,
-                     sizeof(_uart_thread_wa_1),
+            _uart_write_thread_ctx = chThdCreateStatic(_uart_write_thread_wa_1,
+                     sizeof(_uart_write_thread_wa_1),
                      UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_thread,             /* Thread function.     */
+                     _uart_write_thread,             /* Thread function.     */
+                     this); 
+            break;
+        default: break;
+    }
+}
+
+void Rp2040ChibiOS::UARTDriver::readThread() {
+    // setup the uart worker thread to read the RX FIFO
+    switch (driverSerialNr()) {
+        case 0: 
+            _uart_read_thread_ctx = chThdCreateStatic(_uart_read_thread_wa_0,
+                     sizeof(_uart_read_thread_wa_0),
+                     UART_THREAD_PRIORITY,        /* Initial priority.    */
+                     _uart_read_thread,             /* Thread function.     */
+                     this);                     /* Thread parameter.    */
+            break;
+        case 1: 
+            _uart_read_thread_ctx = chThdCreateStatic(_uart_read_thread_wa_1,
+                     sizeof(_uart_read_thread_wa_1),
+                     UART_THREAD_PRIORITY,        /* Initial priority.    */
+                     _uart_read_thread,             /* Thread function.     */
                      this); 
             break;
         default: break;
@@ -55,10 +79,30 @@ void Rp2040ChibiOS::UARTDriver::startThreadOnCore1() {
 }
 
 void Rp2040ChibiOS::UARTDriver::begin(uint32_t b) {
-    if (initialized_flag) {
+    begin(b, RP2040_UART_RX_FIFO_SIZE, RP2040_UART_TX_FIFO_SIZE);
+}
+void Rp2040ChibiOS::UARTDriver::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
+    if (is_initialized()) {
         // it is already initialized, reset it
         end();
     }
+
+    WITH_SEMAPHORE(_uartMutex);
+    if (rxS > MAX_UART_RX_FIFO_SIZE) {
+        rxS = MAX_UART_RX_FIFO_SIZE;
+    }
+    if (txS > MAX_UART_TX_FIFO_SIZE) {
+        txS = MAX_UART_TX_FIFO_SIZE;
+    }
+    if (rxS != rxFIFO.get_size()) {
+        // _rx_initialised = false;
+        rxFIFO.set_size(rxS);
+    }
+    if (txS != txFIFO.get_size()) {
+        // _tx_initialised = false;
+        txFIFO.set_size(txS);
+    }
+
     SIOConfig uart_config = {
         .baud         = b,
         .UARTLCR_H    = UART_UARTLCR_H_WLEN_8BITS | UART_UARTLCR_H_FEN,
@@ -67,19 +111,33 @@ void Rp2040ChibiOS::UARTDriver::begin(uint32_t b) {
         .UARTDMACR    = 0U
     };
     sioStart(uart_driver_inst, &uart_config);
-
     initialized_flag = true;
 }
-void Rp2040ChibiOS::UARTDriver::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
-    // max allowed fifo size is RPI_PICO_UART_MAX_ALLOWED_BUFFER_SIZE
-    maxTxFIFO = txS <= RP2040_UART_MAX_ALLOWED_BUFFER_SIZE ? txS : RP2040_UART_MAX_ALLOWED_BUFFER_SIZE;
-    maxRxFIFO = rxS <= RP2040_UART_MAX_ALLOWED_BUFFER_SIZE ? rxS : RP2040_UART_MAX_ALLOWED_BUFFER_SIZE;
-    begin(b);
+
+bool Rp2040ChibiOS::UARTDriver::is_initialized() {
+    WITH_SEMAPHORE(_uartMutex);
+    return initialized_flag;
+}
+void Rp2040ChibiOS::UARTDriver::set_blocking_writes(bool blocking) {
+    WITH_SEMAPHORE(_uartMutex);
+    _blocking_writes = blocking;
+}
+bool Rp2040ChibiOS::UARTDriver::is_blocking_writes() {
+    WITH_SEMAPHORE(_uartMutex);
+    return _blocking_writes;
+}
+int8_t Rp2040ChibiOS::UARTDriver::driverSerialNr() {
+    WITH_SEMAPHORE(_uartMutex);
+    return _serial_num; 
 }
 
 void Rp2040ChibiOS::UARTDriver::end() {
-    discard_input();
-    clearTxFIFO();
+    WITH_SEMAPHORE(_uartMutex);
+    WITH_SEMAPHORE(_txUartMutex);
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    rxFIFO.set_size(0);
+    txFIFO.set_size(0);
     sioStop(uart_driver_inst);
     initialized_flag = false;
 }
@@ -87,172 +145,180 @@ void Rp2040ChibiOS::UARTDriver::end() {
 void Rp2040ChibiOS::UARTDriver::flush() { _flush(); }
 
 uint8_t Rp2040ChibiOS::UARTDriver::_flush(void) {
-    if (!chMtxTryLock(&uartMutex)) {
-        // the thread FIFO is locked.
-        // the flush function is called periodically by the background thread
-        // therefore we leave now and try in the next round
-        return 0;
-    }
-    if (!is_initialized() || txFIFO.empty()) {
-        chMtxUnlock(&uartMutex);
-        return 0;
-    }
+    if (!is_initialized()) return 0;
 
-    while (!txFIFO.empty()){
-        if (sioIsTXFullX(uart_driver_inst)) {
-            // don't force, try later
+    WITH_SEMAPHORE(_txUartMutex);
+
+    ByteBuffer::IoVec vec[2];
+    const auto n_vec = txFIFO.peekiovec(vec, txFIFO.available());
+
+    for (int i = 0; i < n_vec; i++) {
+        size_t ret = sioAsyncWrite(uart_driver_inst, vec[i].data, vec[i].len);
+
+        if (!ret) {
             break;
         }
-        sioPutX(uart_driver_inst, (uint_fast16_t)txFIFO.front());
-        txFIFO.pop();
+        txFIFO.advance(ret);
+
+        /* We wrote less than we asked for, stop */
+        if ((unsigned)ret != vec[i].len) {
+            break;
+        }
     }
-    uint8_t nrOfElementsInFIFO = txFIFO.size();
-    chMtxUnlock(&uartMutex);
-    return nrOfElementsInFIFO;
+    return txFIFO.available();
 }
 
 void Rp2040ChibiOS::UARTDriver::async_read() {
-    if (!chMtxTryLock(&uartMutex)) {
-        // the transfer FIFO is locked.
-        // the async_read function is called periodically by the background thread
-        // therefore we leave now and try in the next round
-        return;
-    }
-    if (!is_initialized()) {
-        chMtxUnlock(&uartMutex);
-        return;
-    }
-    // we read all the 32 bytes (the size of PL011's RX buffer) at once
-    uint8_t steps = 0;
-    uint8_t spaceInFIFO = maxRxFIFO - rxFIFO.size();
-    while(!sioIsRXEmptyX(uart_driver_inst) && steps < 32) {
-        uint8_t c = (uint8_t)sioGetX(uart_driver_inst);
-        if (spaceInFIFO == steps){
-            // we start to delete the oldest characters from buffer, 
-            // because we ran out of space
-            // !!! this is questionable though 
-            rxFIFO.pop();
+    if (!is_initialized()) return;
+
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    // try to fill the read buffer
+    ByteBuffer::IoVec vec[2];
+    const auto n_vec = rxFIFO.reserve(vec, rxFIFO.space());
+
+    for (uint32_t i = 0; i < n_vec; i++) {
+        size_t ret = sioAsyncRead(uart_driver_inst, vec[i].data, vec[i].len);
+
+        if (!ret) {
+            break;
         }
-        rxFIFO.push(c);
-        steps++;
+        rxFIFO.commit((unsigned)ret);
+
+        /* stop reading as we read less than we asked for */
+        if ((unsigned)ret < vec[i].len) {
+            break;
+        }
     }
-    chMtxUnlock(&uartMutex);
 }
 
-
 bool Rp2040ChibiOS::UARTDriver::tx_pending() {
-    if (!chMtxTryLock(&uartMutex)){
+    if (!is_initialized()) return false;
+
+    if (!_txUartMutex.take_nonblocking()){
         // the thread FIFO is locked.
         return true;
     }
-    if (!is_initialized()) {
-        chMtxUnlock(&uartMutex);
-        return false;
-    }
-
-    bool ret = !txFIFO.empty();
-    chMtxUnlock(&uartMutex);
-    return ret; 
+    return txFIFO.available() > 0; 
 }
 
-/* rp2040 implementations of Stream virtual methods */
 uint32_t Rp2040ChibiOS::UARTDriver::available() { 
-    if (!lockMutexIfInitialized()) return 0;
-    uint32_t ret_val = rxFIFO.size();
-    chMtxUnlock(&uartMutex);
-    return ret_val;
+    if (!is_initialized()) return 0;
+
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    return rxFIFO.available();
 }
 
 uint32_t Rp2040ChibiOS::UARTDriver::txspace() { 
-    if (!lockMutexIfInitialized()) return 0;
+    if (!is_initialized()) return 0;
 
-    uint32_t space = 0;
-    space = maxTxFIFO - txFIFO.size();
-    chMtxUnlock(&uartMutex);
-    return space;
+    WITH_SEMAPHORE(_txUartMutex);
+
+    return txFIFO.space();
 }
 int16_t Rp2040ChibiOS::UARTDriver::read() { 
-    if (!lockMutexIfInitialized()) return 0;
+    if (!is_initialized()) return 0;
 
-    int16_t ret = -1;
-    if (!rxFIFO.empty()) {
-        ret = (int16_t) rxFIFO.front();
-        rxFIFO.pop();
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    uint8_t ret = -1;
+    if (!rxFIFO.read_byte(&ret)) {
+        return -1;
     }
-    chMtxUnlock(&uartMutex);
     return ret;
 }
 
 bool Rp2040ChibiOS::UARTDriver::discard_input() {
-    if (!lockMutexIfInitialized()) return false;
+    if (!is_initialized()) {
+        return true;
+    }
 
-    std::queue<uint8_t>().swap(rxFIFO);
-    chMtxUnlock(&uartMutex);
+    WITH_SEMAPHORE(_rxUartMutex);
+
+    rxFIFO.clear();
     return true; 
 }
 
 void Rp2040ChibiOS::UARTDriver::clearTxFIFO() {
-    if (!lockMutexIfInitialized()) return;
+    if (!is_initialized()) {
+        return;
+    }
 
+    WITH_SEMAPHORE(_txUartMutex);
     // clear the software fifo
-    std::queue<uint8_t>().swap(txFIFO);
-    chMtxUnlock(&uartMutex);
+    txFIFO.clear();
 }
 
-/* rp2040 implementations of Print virtual methods */
 size_t Rp2040ChibiOS::UARTDriver::write(uint8_t c) { 
-    if (!lockMutexIfInitialized()) return 0;
-
-    size_t ret = 0;
-    if (txFIFO.size() < maxTxFIFO) {
-        txFIFO.push(c);
-        ret++;
+    _txUartMutex.take_blocking();
+    if (!is_initialized()) {
+        _txUartMutex.give();
+        return 0;
     }
-    chMtxUnlock(&uartMutex);
+
+    while (txFIFO.space() == 0) {
+        if (!is_blocking_writes()) {
+            _txUartMutex.give();
+            return 0;
+        }
+        // release the semaphore while sleeping
+        _txUartMutex.give();
+        hal.scheduler->delay(1);
+        _txUartMutex.take_blocking();
+    }
+    size_t ret = txFIFO.write(&c, 1);
+    _txUartMutex.give();
     return ret;
 }
 
 size_t Rp2040ChibiOS::UARTDriver::write(const uint8_t *buffer, size_t size) {
-    if (!lockMutexIfInitialized()) return 0;
-    
-    size_t ret = 0;
-    for (uint32_t i=0; i<MIN(size, maxTxFIFO - txFIFO.size()); i++) {
-        txFIFO.push(buffer[i]);
-        ret++;
+    if (!is_initialized()) {
+		return 0;
+	}
+
+    if (is_blocking_writes()) {
+        // use the per-byte delay loop in write() above for blocking writes
+        size_t ret = 0;
+        while (size--) {
+            if (write(*buffer++) != 1) break;
+            ret++;
+        }
+        return ret;
     }
-    chMtxUnlock(&uartMutex);
+
+    WITH_SEMAPHORE(_txUartMutex);
+
+    size_t ret = txFIFO.write(buffer, size);
     return ret;
 }
 
-bool Rp2040ChibiOS::UARTDriver::lockMutexIfInitialized() {
-    chMtxLock(&uartMutex);
-    if (!is_initialized()) {
-        chMtxUnlock(&uartMutex);
-        return false;
-    }
-    return true;
-}
-
-void Rp2040ChibiOS::UARTDriver::_uart_thread(void *arg)
+void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
 {
     UARTDriver * uart = (UARTDriver *)arg;
     // add the number of uart interface to the name of thread
     char * thread_name;
-    asprintf(&thread_name, "uart_thread_%d", uart->driverSerialNr());
+    asprintf(&thread_name, "uart_write_thread_%d", uart->driverSerialNr());
     chRegSetThreadName(thread_name);
 
     uint16_t delay = 0;
     while (true) {
         // delay less if there are elements left in the TX FIFO
-        delay =  uart->_flush() ? 10 : 100;
-        uart->async_read();
+        delay =  uart->_flush() ? 10 : 1000;
         hal.scheduler->delay_microseconds(delay);
     }
 }
 
-#if HAL_UART_STATS_ENABLED
-void Rp2040ChibiOS::UARTDriver::uart_info(ExpandingString &str)
+void Rp2040ChibiOS::UARTDriver::_uart_read_thread(void *arg)
 {
-    str.printf("EMPTY\n");
+    UARTDriver * uart = (UARTDriver *)arg;
+    // add the number of uart interface to the name of thread
+    char * thread_name;
+    asprintf(&thread_name, "uart_read_thread_%d", uart->driverSerialNr());
+    chRegSetThreadName(thread_name);
+
+    while (true) {
+        uart->async_read();
+        hal.scheduler->delay_microseconds(1000);
+    }
 }
-#endif

@@ -59,9 +59,9 @@ void loop(void)
     test_uart(hal.serial(5), "SERIAL5");
 
     palToggleLine(25U);
-    hal.scheduler->delay(500);
+    hal.scheduler->delay(300);
     palToggleLine(25U);
-    hal.scheduler->delay(500);
+    hal.scheduler->delay(700);
 }
 
 AP_HAL_MAIN();
