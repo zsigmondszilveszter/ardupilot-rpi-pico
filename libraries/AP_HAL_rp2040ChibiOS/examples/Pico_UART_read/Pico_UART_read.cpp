@@ -53,7 +53,6 @@ static void read_uart(AP_HAL::UARTDriver *uart, const char *name) {
         buffer[available] = 0;
         uart->write((const char *)buffer);
     }
-    
 }
 
 void loop(void)

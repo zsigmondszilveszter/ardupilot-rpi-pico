@@ -30,8 +30,8 @@
 #include "hwdef/common/stdio.h"
 #include <AP_HAL/AP_HAL.h>
 #if HAL_USE_SERIAL_USB == TRUE
-#include <AP_HAL_ChibiOS/hwdef/common/usbcfg.h>
-#include "UARTDriver.h"
+#include <AP_HAL_rp2040ChibiOS/hwdef/common/usbcfg.h>
+#include "UsbCdcConsole.h"
 #endif
 
 #ifndef HAL_BOOTLOADER_BUILD

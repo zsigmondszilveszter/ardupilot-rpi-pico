@@ -52,7 +52,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,// $qspiDeviceManager,
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
-        nullptr,// &console_over_USB, //nullptr,// &uartADriver,
+        &console_over_USB, //nullptr,// &uartADriver,
         nullptr,// &gpioDriver,
         nullptr,// &rcinDriver,
         nullptr,// &rcoutDriver,
@@ -99,12 +99,14 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      */
     chThdSetPriority(APM_MAIN_PRIORITY);
 
+    start_core_1 = true;
+
     /* initialize all drivers and private members here.
      * up to the programmer to do this in the correct order.
      * Scheduler should likely come first. */
     hal.scheduler->init();
 
-    start_core_1 = true;
+    
 
      /*
       run setup() at low priority to ensure CLI doesn't hang the
@@ -181,6 +183,7 @@ extern "C" {
         while (!start_core_1) {
             chThdSleepMicroseconds(10);
         }
+        hal.serial(0)->begin(115200);
 
         Rp2040ChibiOS::Scheduler * scheduler = (Rp2040ChibiOS::Scheduler *) hal.scheduler;
         scheduler->init_core1();
