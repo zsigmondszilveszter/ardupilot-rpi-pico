@@ -25,7 +25,7 @@ void usb_initialise(void)
      * after a reset.
      */
     usbDisconnectBus(serusbcfg.usbp);
-    chThdSleep(chTimeUS2I(1500));
+    chThdSleep(chTimeUS2I(1000));
     usbStart(serusbcfg.usbp, &usbcfg);
     usbConnectBus(serusbcfg.usbp);
 
@@ -68,12 +68,9 @@ void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b) {
     begin(b, RP2040_USB_CDC_RX_FIFO_SIZE, RP2040_USB_CDC_TX_FIFO_SIZE);
 }
 void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
-    if (is_initialized()) {
-        // it is already initialized, reset it
-        end();
-    }
-
     WITH_SEMAPHORE(_usbMutex);
+    initialized_flag = false;
+
     if (rxS > MAX_USB_CDC_RX_FIFO_SIZE) {
         rxS = MAX_USB_CDC_RX_FIFO_SIZE;
     }
@@ -86,7 +83,6 @@ void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b, uint16_t rxS, uint16_t txS)
     if (txS != txFIFO.get_size()) {
         txFIFO.set_size(txS);
     }
-
     initialized_flag = true;
 }
 

@@ -65,6 +65,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
 {}
 
 static bool start_core_1 = false;
+static bool core_1_started = false;
 static bool thread_running = false;        /**< Daemon status flag */
 static thread_t* daemon_task;              /**< Handle of daemon task / thread */
 extern const AP_HAL::HAL& hal;
@@ -100,13 +101,15 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
     chThdSetPriority(APM_MAIN_PRIORITY);
 
     start_core_1 = true;
+    // Wait until core1 and the USB console is initialized 
+    while (!core_1_started) {
+        chThdSleepMicroseconds(10);
+    }
 
     /* initialize all drivers and private members here.
      * up to the programmer to do this in the correct order.
      * Scheduler should likely come first. */
     hal.scheduler->init();
-
-    
 
      /*
       run setup() at low priority to ensure CLI doesn't hang the
@@ -184,6 +187,7 @@ extern "C" {
             chThdSleepMicroseconds(10);
         }
         hal.serial(0)->begin(115200);
+        core_1_started = true;
 
         Rp2040ChibiOS::Scheduler * scheduler = (Rp2040ChibiOS::Scheduler *) hal.scheduler;
         scheduler->init_core1();
@@ -203,6 +207,7 @@ extern "C" {
             chThdSleepMilliseconds(1000);
         }
 
+        core_1_started = false;
         return 0;
     }
 }
