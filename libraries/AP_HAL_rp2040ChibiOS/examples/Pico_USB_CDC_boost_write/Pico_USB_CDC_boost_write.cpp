@@ -30,11 +30,6 @@ void setup(void)
     */
 
     setup_uart(hal.serial(0), "SERIAL0");  // console
-    setup_uart(hal.serial(1), "SERIAL1");  // telemetry 1
-    setup_uart(hal.serial(2), "SERIAL2");  // telemetry 2
-    setup_uart(hal.serial(3), "SERIAL3");  // 1st GPS
-    setup_uart(hal.serial(4), "SERIAL4");  // 2nd GPS
-    setup_uart(hal.serial(5), "SERIAL5");  // RCin
 }
 
 
@@ -48,19 +43,16 @@ static void test_uart(AP_HAL::UARTDriver *uart, const char *name)
                  name, (double)(AP_HAL::millis() * 0.001f));
 }
 
+static uint8_t counter = 0;
 void loop(void)
 {
     test_uart(hal.serial(0), "SERIAL0");
-    test_uart(hal.serial(1), "SERIAL1");
-    test_uart(hal.serial(2), "SERIAL2");
-    test_uart(hal.serial(3), "SERIAL3");
-    test_uart(hal.serial(4), "SERIAL4");
-    test_uart(hal.serial(5), "SERIAL5");
 
-    hal.gpio->toggle(25U);
-    hal.scheduler->delay(300);
-    hal.gpio->toggle(25U);
-    hal.scheduler->delay(700);
+    hal.scheduler->delay(1);
+    counter++;
+    if(!counter) {
+        hal.gpio->toggle(25U);
+    }
 }
 
 AP_HAL_MAIN();

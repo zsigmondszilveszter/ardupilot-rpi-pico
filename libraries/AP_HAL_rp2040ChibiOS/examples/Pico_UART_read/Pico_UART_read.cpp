@@ -20,11 +20,10 @@ static void setup_uart(AP_HAL::UARTDriver *uart, const char *name)
 
 void setup(void)
 {
-    palSetLineMode(25U, PAL_MODE_OUTPUT_PUSHPULL | PAL_RP_PAD_DRIVE12);
-
-    palSetLine(25U);
+    hal.gpio->pinMode(25U, 1);
+    hal.gpio->write(25U, PAL_HIGH);
     hal.scheduler->delay(1000);
-    palClearLine(25U);
+    hal.gpio->write(25U, PAL_LOW);
 
     /*
       start all UARTs at 115200 with default buffer sizes
@@ -64,7 +63,7 @@ void loop(void)
     read_uart(hal.serial(4), "SERIAL4");
     read_uart(hal.serial(5), "SERIAL5");
 
-    palToggleLine(25U);
+    hal.gpio->toggle(25U);
 }
 
 AP_HAL_MAIN();
