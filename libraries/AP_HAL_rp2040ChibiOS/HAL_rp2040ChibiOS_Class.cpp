@@ -27,7 +27,7 @@ static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 // static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
-// static GPIO gpioDriver;
+static GPIO gpioDriver;
 // static RCInput rcinDriver;
 // static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
@@ -53,7 +53,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
         &console_over_USB, //nullptr,// &uartADriver,
-        nullptr,// &gpioDriver,
+        &gpioDriver,
         nullptr,// &rcinDriver,
         nullptr,// &rcoutDriver,
         &schedulerInstance,

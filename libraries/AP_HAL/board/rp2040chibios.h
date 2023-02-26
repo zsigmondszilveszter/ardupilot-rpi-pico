@@ -100,3 +100,9 @@
 
 #define HAVE_FILESYSTEM_SUPPORT 1
 #define HAL_OS_POSIX_IO 1
+
+#define HAL_GPIO_PINS { \
+{  25, true,  0, 25U},  /* LED_GREEN OUTPUT */ \
+{  6,  true,  0, 6U },  /* LED_RED1 OUTPUT */ \
+{  9,  true,  0, 9U },  /* LED_RED2 OUTPUT */ \
+}

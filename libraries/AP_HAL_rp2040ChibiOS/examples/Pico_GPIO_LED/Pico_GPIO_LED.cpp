@@ -8,16 +8,20 @@ const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 
 void setup(void)
 {
-    palSetLineMode(25U, PAL_MODE_OUTPUT_PUSHPULL | PAL_RP_PAD_DRIVE12);
-    palSetLine(25U);
+    hal.gpio->pinMode(25U, 1);
+    hal.gpio->pinMode(6U, 1);
+    hal.gpio->pinMode(9U, 1);
     hal.scheduler->delay(1500);
-    palClearLine(25U);
 }
 
 void loop(void)
 {
+    hal.gpio->toggle(25U);
     hal.scheduler->delay(300);
-    palToggleLine(25U);
+    hal.gpio->toggle(6U);
+    hal.scheduler->delay(300);
+    hal.gpio->toggle(9U);
+    hal.scheduler->delay(300);
 }
 
 AP_HAL_MAIN();
