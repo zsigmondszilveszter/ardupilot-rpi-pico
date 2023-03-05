@@ -16,7 +16,6 @@
 #include <AP_HAL_rp2040ChibiOS/Semaphores.h>
 #define HAL_Semaphore Rp2040ChibiOS::Semaphore
 
-
 // Scheduler
 #define RP2040_MAX_TIMER_PROC 32
 #define RP2040_MAX_IO_PROC 32
@@ -66,6 +65,7 @@
 #define HAL_MEM_CLASS HAL_MEM_CLASS_192
 #define HAL_STORAGE_SIZE            2048
 #define HAL_STORAGE_SIZE_AVAILABLE  HAL_STORAGE_SIZE
+#define BOARD_FLASH_SIZE HAL_STORAGE_SIZE
 #define CONFIG_HAL_BOARD_SUBTYPE HAL_BOARD_SUBTYPE_NONE
 
 
@@ -101,8 +101,19 @@
 #define HAVE_FILESYSTEM_SUPPORT 1
 #define HAL_OS_POSIX_IO 1
 
+
+// GPIO configuration
+
 #define HAL_GPIO_PINS { \
 {  25, true,  0, 25U},  /* LED_GREEN OUTPUT */ \
 {  6,  true,  0, 6U },  /* LED_RED1 OUTPUT */ \
 {  9,  true,  0, 9U },  /* LED_RED2 OUTPUT */ \
 }
+
+
+// I2C configuration
+
+#define HAL_I2C0_CONFIG { &I2CD0, 0, 0, 0, RP2040_I2C0_SCL_GPIO_PIN, RP2040_I2C0_SDA_GPIO_PIN }
+#define HAL_I2C1_CONFIG { &I2CD1, 0, 0, 0, RP2040_I2C1_SCL_GPIO_PIN, RP2040_I2C1_SDA_GPIO_PIN }
+
+#define HAL_I2C_DEVICE_LIST HAL_I2C0_CONFIG,HAL_I2C1_CONFIG

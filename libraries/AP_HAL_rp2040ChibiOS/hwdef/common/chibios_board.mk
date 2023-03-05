@@ -139,7 +139,8 @@ CSRC += $(HWDEF)/common/hrt.c \
 	   $(HWDEF)/common/malloc.c \
      $(HWDEF)/common/board.c \
      $(HWDEF)/common/rp2040_util.c \
-     $(HWDEF)/common/usbcfg.c
+     $(HWDEF)/common/usbcfg.c \
+     $(HWDEF)/common/bouncebuffer.c
 
 #	   $(TESTSRC) \
 #	   test.c

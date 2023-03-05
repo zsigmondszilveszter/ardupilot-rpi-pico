@@ -45,9 +45,7 @@ static mutex_t mem_mutex;
 
 // memory regions
 #define HAL_MEMORY_REGIONS \
-    {(void*)0x20000000, 0x00040000, 0x1 }, \
-    {(void*)0x20040000, 0x00001000, 0x1 }, \
-    {(void*)0x20041000, 0x00001000, 0x1 }
+    {(void*)0x20000000, 0x00040000, 0x1 }
 
 static const struct memory_region memory_regions[] = { HAL_MEMORY_REGIONS };
 // the first memory region is already setup as the ChibiOS

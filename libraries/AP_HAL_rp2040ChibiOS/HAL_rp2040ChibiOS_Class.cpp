@@ -23,7 +23,7 @@ using namespace Rp2040ChibiOS;
 static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
 static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
-// static I2CDeviceManager i2cDeviceManager;
+static I2CDeviceManager i2cDeviceManager;
 // static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
@@ -47,12 +47,12 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
         nullptr,            /* no uartJ*/
-        nullptr,// &i2cDeviceManager,
+        &i2cDeviceManager,
         nullptr,// &spiDeviceManager,
         nullptr,// $qspiDeviceManager,
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
-        &console_over_USB, //nullptr,// &uartADriver,
+        &console_over_USB,
         &gpioDriver,
         nullptr,// &rcinDriver,
         nullptr,// &rcoutDriver,
@@ -184,7 +184,7 @@ extern "C" {
 
         // Wait until the scheduler is initialized on core0
         while (!start_core_1) {
-            chThdSleepMicroseconds(10);
+            hal.scheduler->delay_microseconds(10);
         }
         hal.serial(0)->begin(115200);
         core_1_started = true;
@@ -203,8 +203,11 @@ extern "C" {
         uart1->writeThread();
         uart1->readThread();
 
+        chThdSetPriority(LOWPRIO);
+
         while(true) {
-            chThdSleepMilliseconds(1000);
+            Rp2040ChibiOS::DeviceBus::startThreadsOnCore1();
+            hal.scheduler->delay_microseconds(1000);
         }
 
         core_1_started = false;

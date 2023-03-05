@@ -21,75 +21,118 @@
 #include <AP_HAL/HAL.h>
 #include <AP_HAL/I2CDevice.h>
 #include <AP_HAL/utility/OwnPtr.h>
+#include "AP_HAL_rp2040ChibiOS.h"
+
+#if HAL_USE_I2C == TRUE
+
+#define RP2040_I2C_SPEED_HIGH 400
+#define RP2040_I2C_SPEED_LOW 100
+
+#include "Semaphores.h"
+#include "Device.h"
 
 namespace Rp2040ChibiOS {
 
+class I2CBus : public DeviceBus {
+public:
+    I2CConfig i2ccfg;
+    uint8_t busnum;
+    uint32_t busclock;
+
+    static void clear_all(void);
+    static void clear_bus(uint8_t busidx);
+    static void set_bus_to_floating(uint8_t busidx);
+};
+
 class I2CDevice : public AP_HAL::I2CDevice {
 public:
-    I2CDevice()
+    static I2CDevice *from(AP_HAL::I2CDevice *dev)
     {
+        return static_cast<I2CDevice*>(dev);
     }
-
-    virtual ~I2CDevice() { }
-
-    /* AP_HAL::I2CDevice implementation */
+    I2CDevice(uint8_t bus, uint8_t address, uint32_t bus_clock, bool use_smbus, uint32_t timeout_ms);
+    ~I2CDevice();
 
     /* See AP_HAL::I2CDevice::set_address() */
-    void set_address(uint8_t address) override { }
+    void set_address(uint8_t address) override { _address = address; }
 
     /* See AP_HAL::I2CDevice::set_retries() */
-    void set_retries(uint8_t retries) override { }
+    void set_retries(uint8_t retries) override { _retries = retries; }
 
-
-    /* AP_HAL::Device implementation */
+    /* See AP_HAL::Device::set_speed(): Empty implementation, not supported. */
+    bool set_speed(enum Device::Speed speed) override { return true; }
 
     /* See AP_HAL::Device::transfer() */
     bool transfer(const uint8_t *send, uint32_t send_len,
-                  uint8_t *recv, uint32_t recv_len) override
-    {
-        return true;
-    }
+                  uint8_t *recv, uint32_t recv_len) override;
 
     bool read_registers_multiple(uint8_t first_reg, uint8_t *recv,
-                                 uint32_t recv_len, uint8_t times) override
-    {
-        return true;
-    }
-
-
-    /* See AP_HAL::Device::set_speed() */
-    bool set_speed(enum AP_HAL::Device::Speed speed) override { return true; }
-
-    /* See AP_HAL::Device::get_semaphore() */
-    AP_HAL::Semaphore *get_semaphore() override { return nullptr; }
+                                 uint32_t recv_len, uint8_t times) override;
 
     /* See AP_HAL::Device::register_periodic_callback() */
     AP_HAL::Device::PeriodicHandle register_periodic_callback(
-        uint32_t period_usec, AP_HAL::Device::PeriodicCb) override
-    {
-        return nullptr;
+        uint32_t period_usec, AP_HAL::Device::PeriodicCb) override;
+
+    /* See AP_HAL::Device::adjust_periodic_callback() */
+    bool adjust_periodic_callback(AP_HAL::Device::PeriodicHandle h, uint32_t period_usec) override;
+
+    AP_HAL::Semaphore* get_semaphore() override {
+        // if asking for invalid bus number use bus 0 semaphore
+        return &bus.semaphore;
     }
 
-    /* See Device::adjust_periodic_callback() */
-    virtual bool adjust_periodic_callback(
-        AP_HAL::Device::PeriodicHandle h, uint32_t period_usec) override
-    {
-        return true;
+    void set_split_transfers(bool set) override {
+        _split_transfers = set;
     }
+
+private:
+    I2CBus &bus;
+    bool _transfer(const uint8_t *send, uint32_t send_len,
+                         uint8_t *recv, uint32_t recv_len);
+
+    /* I2C interface #2 */
+    uint8_t _retries;
+    uint8_t _address;
+    char *pname;
+    bool _split_transfers;
+    bool _use_smbus;
+    uint32_t _timeout_ms;
 };
 
 class I2CDeviceManager : public AP_HAL::I2CDeviceManager {
 public:
-    I2CDeviceManager() { }
+    friend class I2CDevice;
 
-    /* AP_HAL::I2CDeviceManager implementation */
-    AP_HAL::OwnPtr<AP_HAL::I2CDevice> get_device(uint8_t bus, uint8_t address,
-                                                 uint32_t bus_clock=400000,
-                                                 bool use_smbus = false,
-                                                 uint32_t timeout_ms=4) override
+    static I2CBus businfo[];
+
+    // constructor
+    I2CDeviceManager();
+
+    static I2CDeviceManager *from(AP_HAL::I2CDeviceManager *i2c_mgr)
     {
-        return nullptr;
+        return static_cast<I2CDeviceManager*>(i2c_mgr);
     }
-};
 
+    AP_HAL::OwnPtr<AP_HAL::I2CDevice> get_device(uint8_t bus, uint8_t address,
+                                                 uint32_t bus_clock = RP2040_I2C_SPEED_HIGH * 1000,
+                                                 bool use_smbus = false,
+                                                 uint32_t timeout_ms=4) override;
+
+    /*
+      get mask of bus numbers for all configured I2C buses
+     */
+    uint32_t get_bus_mask(void) const override;
+
+    /*
+      get mask of bus numbers for all configured external I2C buses
+     */
+    uint32_t get_bus_mask_external(void) const override;
+
+    /*
+      get mask of bus numbers for all configured internal I2C buses
+     */
+    uint32_t get_bus_mask_internal(void) const override;
+};
 }
+
+#endif // HAL_USE_I2C

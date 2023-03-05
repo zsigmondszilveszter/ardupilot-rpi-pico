@@ -51,6 +51,8 @@
 #define RP_IRQ_SPI0_PRIORITY                2
 #define RP_IRQ_SPI1_PRIORITY                2
 #define RP_IRQ_USB0_PRIORITY                2
+#define RP_IRQ_I2C0_PRIORITY                2
+#define RP_IRQ_I2C1_PRIORITY                2
 
 /*
  * SIO driver system settings.
@@ -72,6 +74,20 @@
 #define RP_SPI_DMA_ERROR_HOOK(spip)
 
 /*
+ * I2C driver system settings.
+ */
+#define RP_I2C_USE_I2C0                     TRUE
+#define RP_I2C_USE_I2C1                     TRUE
+#define RP_I2C_I2C0_RX_DMA_CHANNEL          RP_DMA_CHANNEL_ID_ANY
+#define RP_I2C_I2C0_TX_DMA_CHANNEL          RP_DMA_CHANNEL_ID_ANY
+#define RP_I2C_I2C1_RX_DMA_CHANNEL          RP_DMA_CHANNEL_ID_ANY
+#define RP_I2C_I2C1_TX_DMA_CHANNEL          RP_DMA_CHANNEL_ID_ANY
+#define RP_I2C_I2C0_DMA_PRIORITY            1
+#define RP_I2C_I2C1_DMA_PRIORITY            1
+#define RP_I2C_DMA_ERROR_HOOK(spip)
+#define RP_I2C_ADDRESS_MODE_10BIT           FALSE
+
+/*
  * USB driver system settings.
  */
 #define RP_USB_USE_USBD0                    TRUE
@@ -79,5 +95,6 @@
 #define RP_USE_EXTERNAL_VBUS_DETECT         FALSE
 #define RP_USB_USE_SOF_INTR                 TRUE
 #define RP_USB_USE_ERROR_DATA_SEQ_INTR      TRUE
+
 
 #endif /* MCUCONF_H */
