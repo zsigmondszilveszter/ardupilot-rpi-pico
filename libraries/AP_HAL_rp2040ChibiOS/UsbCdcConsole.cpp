@@ -1,6 +1,8 @@
 #include "hal.h"
 #include "UsbCdcConsole.h"
 #include "usbcfg.h"
+#include "Scheduler.h"
+#include "rp2040_util.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -31,8 +33,6 @@ void usb_initialise(void)
 
 }
 
-#define USB_CDC_THREAD_PRIORITY  LOWPRIO
-
 #ifndef USB_CDC_WRITE_THD_WA_SIZE
 #define USB_CDC_WRITE_THD_WA_SIZE RP2040_USB_CDC_TX_FIFO_SIZE + 32
 #endif
@@ -41,27 +41,34 @@ void usb_initialise(void)
 #define USB_CDC_READ_THD_WA_SIZE RP2040_USB_CDC_RX_FIFO_SIZE + 32
 #endif
 
-THD_WORKING_AREA(_usb_cdc_write_thread_wa_, USB_CDC_WRITE_THD_WA_SIZE);
-THD_WORKING_AREA(_usb_cdc_read_thread_wa_, USB_CDC_READ_THD_WA_SIZE);
-
 Rp2040ChibiOS::UsbCdcConsole::UsbCdcConsole() {}
 
 void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
     // setup the uart worker thread to flush the TX FIFO
-    _usb_cdc_write_thread_ctx = chThdCreateStatic(_usb_cdc_write_thread_wa_,
-                sizeof(_usb_cdc_write_thread_wa_),
-                USB_CDC_THREAD_PRIORITY,        /* Initial priority.    */
-                _usb_cdc_write_thread,             /* Thread function.     */
-                this);                     /* Thread parameter.    */
+    if (_usb_cdc_write_thread_ctx == nullptr) {
+        _usb_cdc_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_CDC_WRITE_THD_WA_SIZE),
+                                              "UART_TX",
+                                              USB_CDC_THREAD_PRIORITY,
+                                              _usb_cdc_write_thread,
+                                              this, &ch1);
+        if (_usb_cdc_write_thread_ctx == nullptr) {
+            AP_HAL::panic("Could not create USB CDC CONSOLE TX thread\n");
+        }
+    }
 }
 
 void Rp2040ChibiOS::UsbCdcConsole::readThread() {
     // setup the uart worker thread to read the RX FIFO
-    _usb_cdc_read_thread_ctx = chThdCreateStatic(_usb_cdc_read_thread_wa_,
-                sizeof(_usb_cdc_read_thread_wa_),
-                USB_CDC_THREAD_PRIORITY,        /* Initial priority.    */
-                _usb_cdc_read_thread,             /* Thread function.     */
-                this);                     /* Thread parameter.    */
+    if (_usb_cdc_read_thread_ctx == nullptr) {
+        _usb_cdc_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_CDC_READ_THD_WA_SIZE),
+                                              "UART_RX",
+                                              USB_CDC_THREAD_PRIORITY,
+                                              _usb_cdc_read_thread,
+                                              this, &ch1);
+        if (_usb_cdc_read_thread_ctx == nullptr) {
+            AP_HAL::panic("Could not create USB CDC CONSOLE RX thread\n");
+        }
+    }
 }
 
 void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b) {
@@ -83,6 +90,8 @@ void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b, uint16_t rxS, uint16_t txS)
     if (txS != txFIFO.get_size()) {
         txFIFO.set_size(txS);
     }
+    writeThread();
+    readThread();
     initialized_flag = true;
 }
 

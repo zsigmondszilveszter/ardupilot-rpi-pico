@@ -33,12 +33,6 @@ extern const AP_HAL::HAL& hal;
 #ifndef HAL_NO_TIMER_THREAD
 THD_WORKING_AREA(_timer_thread_wa, TIMER_THD_WA_SIZE);
 #endif
-#ifndef HAL_USE_EMPTY_IO
-THD_WORKING_AREA(_io_thread_wa, IO_THD_WA_SIZE);
-#endif
-#ifndef HAL_NO_MONITOR_THREAD
-THD_WORKING_AREA(_monitor_thread_wa, MONITOR_THD_WA_SIZE);
-#endif
 
 Scheduler::Scheduler()
 {
@@ -65,20 +59,20 @@ void Scheduler::init_core1() {
 
 #ifndef HAL_NO_MONITOR_THREAD
     // setup the monitor thread - this is used to detect software lockups
-    _monitor_thread_ctx = chThdCreateStatic(_monitor_thread_wa,
-                     sizeof(_monitor_thread_wa),
-                     APM_MONITOR_PRIORITY,        /* Initial priority.    */
-                     _monitor_thread,             /* Thread function.     */
-                     this);                     /* Thread parameter.    */
+    _monitor_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(MONITOR_THD_WA_SIZE),
+                                              "MONITOR_THREAD",
+                                              APM_MONITOR_PRIORITY,
+                                              _monitor_thread,
+                                              this, &ch1);
 #endif
 
 #ifndef HAL_USE_EMPTY_IO
     // the IO thread runs at lower priority
-    _io_thread_ctx = chThdCreateStatic(_io_thread_wa,
-                     sizeof(_io_thread_wa),
-                     APM_IO_PRIORITY,        /* Initial priority.      */
-                     _io_thread,             /* Thread function.       */
-                     this);                  /* Thread parameter.      */
+    _io_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(IO_THD_WA_SIZE),
+                                              "IO_THREAD",
+                                              APM_IO_PRIORITY,
+                                              _io_thread,
+                                              this, &ch1);
 #endif
 }
 
@@ -539,14 +533,14 @@ uint8_t Scheduler::calculate_thread_priority(priority_base base, int8_t priority
     } priority_map[] = {
         { PRIORITY_BOOST, APM_MAIN_PRIORITY_BOOST},
         { PRIORITY_MAIN, APM_MAIN_PRIORITY},
-        // { PRIORITY_SPI, APM_SPI_PRIORITY},
-        // { PRIORITY_I2C, APM_I2C_PRIORITY},
+        { PRIORITY_SPI, APM_SPI_PRIORITY},
+        { PRIORITY_I2C, APM_I2C_PRIORITY},
         // { PRIORITY_CAN, APM_CAN_PRIORITY},
         { PRIORITY_TIMER, APM_TIMER_PRIORITY},
         // { PRIORITY_RCOUT, APM_RCOUT_PRIORITY},
         // { PRIORITY_RCIN, APM_RCIN_PRIORITY},
         { PRIORITY_IO, APM_IO_PRIORITY},
-        // { PRIORITY_UART, APM_UART_PRIORITY},
+        { PRIORITY_UART, APM_UART_PRIORITY},
         // { PRIORITY_STORAGE, APM_STORAGE_PRIORITY},
         { PRIORITY_SCRIPTING, APM_SCRIPTING_PRIORITY},
     };
@@ -578,7 +572,7 @@ bool Scheduler::thread_create(AP_HAL::MemberProc proc, const char *name, uint32_
                                                name,
                                                thread_priority,
                                                thread_create_trampoline,
-                                               tproc);
+                                               tproc, NULL);
     if (thread_ctx == nullptr) {
         free(tproc);
         return false;

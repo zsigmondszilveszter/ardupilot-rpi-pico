@@ -1,6 +1,6 @@
 #include "UARTDriver.h"
-
-#define UART_THREAD_PRIORITY  LOWPRIO
+#include "Scheduler.h"
+#include "rp2040_util.h"
 
 #ifndef UART_WRITE_THD_WA_SIZE
 #define UART_WRITE_THD_WA_SIZE RP2040_UART_TX_FIFO_SIZE + 32
@@ -11,11 +11,6 @@
 #endif
 
 extern const AP_HAL::HAL& hal;
-
-THD_WORKING_AREA(_uart_write_thread_wa_0, UART_WRITE_THD_WA_SIZE);
-THD_WORKING_AREA(_uart_write_thread_wa_1, UART_WRITE_THD_WA_SIZE);
-THD_WORKING_AREA(_uart_read_thread_wa_0, UART_READ_THD_WA_SIZE);
-THD_WORKING_AREA(_uart_read_thread_wa_1, UART_READ_THD_WA_SIZE);
 
 Rp2040ChibiOS::UARTDriver::UARTDriver(int8_t serial_num) {
     _serial_num = serial_num;
@@ -36,43 +31,23 @@ Rp2040ChibiOS::UARTDriver::UARTDriver(int8_t serial_num) {
 
 void Rp2040ChibiOS::UARTDriver::writeThread() {
     // setup the uart worker thread to flush the TX FIFO
-    switch (driverSerialNr()) {
-        case 0: 
-            _uart_write_thread_ctx = chThdCreateStatic(_uart_write_thread_wa_0,
-                     sizeof(_uart_write_thread_wa_0),
-                     UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_write_thread,             /* Thread function.     */
-                     this);                     /* Thread parameter.    */
-            break;
-        case 1: 
-            _uart_write_thread_ctx = chThdCreateStatic(_uart_write_thread_wa_1,
-                     sizeof(_uart_write_thread_wa_1),
-                     UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_write_thread,             /* Thread function.     */
-                     this); 
-            break;
-        default: break;
+    if (_uart_write_thread_ctx == nullptr) {
+        _uart_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(UART_WRITE_THD_WA_SIZE),
+                "UART_TX",
+                UART_THREAD_PRIORITY,        /* Initial priority.    */
+                _uart_write_thread,             /* Thread function.     */
+                this, &ch1);
     }
 }
 
 void Rp2040ChibiOS::UARTDriver::readThread() {
     // setup the uart worker thread to read the RX FIFO
-    switch (driverSerialNr()) {
-        case 0: 
-            _uart_read_thread_ctx = chThdCreateStatic(_uart_read_thread_wa_0,
-                     sizeof(_uart_read_thread_wa_0),
-                     UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_read_thread,             /* Thread function.     */
-                     this);                     /* Thread parameter.    */
-            break;
-        case 1: 
-            _uart_read_thread_ctx = chThdCreateStatic(_uart_read_thread_wa_1,
-                     sizeof(_uart_read_thread_wa_1),
-                     UART_THREAD_PRIORITY,        /* Initial priority.    */
-                     _uart_read_thread,             /* Thread function.     */
-                     this); 
-            break;
-        default: break;
+    if (_uart_read_thread_ctx == nullptr) {
+        _uart_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(UART_READ_THD_WA_SIZE),
+                "UART_RX",
+                UART_THREAD_PRIORITY,        /* Initial priority.    */
+                _uart_read_thread,             /* Thread function.     */
+                this, &ch1);
     }
 }
 
@@ -107,6 +82,8 @@ void Rp2040ChibiOS::UARTDriver::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
         .UARTDMACR    = 0U
     };
     sioStart(uart_driver_inst, &uart_config);
+    writeThread();
+    readThread();
     initialized_flag = true;
 }
 

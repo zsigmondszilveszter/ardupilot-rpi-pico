@@ -35,9 +35,6 @@ using namespace Rp2040ChibiOS;
 
 extern const AP_HAL::HAL& hal;
 
-std::queue<DeviceBus *> DeviceBus::waitingQueueForCore1Thread;
-HAL_Semaphore DeviceBus::_staticDevicesSem;
-
 
 DeviceBus::DeviceBus(uint8_t _thread_priority) : thread_priority(_thread_priority)
 {
@@ -59,7 +56,6 @@ void DeviceBus::bus_thread(void *arg)
 }
 
 void DeviceBus::bus_thread_work(struct DeviceBus *binfo) {
-    WITH_SEMAPHORE(binfo->_deviceSem);
 
     uint64_t now = AP_HAL::micros64();
     DeviceBus::callback_info *callback;
@@ -106,13 +102,36 @@ void DeviceBus::bus_thread_work(struct DeviceBus *binfo) {
 #if CH_CFG_USE_HEAP == TRUE
 AP_HAL::Device::PeriodicHandle DeviceBus::register_periodic_callback(uint32_t period_usec, AP_HAL::Device::PeriodicCb cb, AP_HAL::Device *_hal_device)
 {
-    WITH_SEMAPHORE(_deviceSem);
-
-    if (!thread_should_start) {
-        thread_should_start = true;
+    if (!thread_started) {
+        thread_started = true;
 
         hal_device = _hal_device;
-        addSelfToDevices();
+        // setup a name for the thread
+        const uint8_t name_len = 7;
+        char *name = (char *)malloc(name_len);
+        switch (hal_device->bus_type()) {
+        case AP_HAL::Device::BUS_TYPE_I2C:
+            snprintf(name, name_len, "I2C%u",
+                        hal_device->bus_num());
+            break;
+
+        case AP_HAL::Device::BUS_TYPE_SPI:
+            snprintf(name, name_len, "SPI%u",
+                        hal_device->bus_num());
+            break;
+        default:
+            break;
+        }
+
+        thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(HAL_DEVICE_THREAD_STACK),
+                                            name,
+                                            thread_priority,           /* Initial priority.    */
+                                            DeviceBus::bus_thread,    /* Thread function.     */
+                                            this,                       /* Thread parameter.    */
+                                            &ch1);                    /* OS instance / core).    */ 
+        if (thread_ctx == nullptr) {
+            AP_HAL::panic("Failed to create bus thread %s", name);
+        }
     }
     DeviceBus::callback_info *callback = new DeviceBus::callback_info;
     if (callback == nullptr) {
@@ -129,55 +148,6 @@ AP_HAL::Device::PeriodicHandle DeviceBus::register_periodic_callback(uint32_t pe
     return callback;
 }
 #endif // CH_CFG_USE_HEAP
-
-void DeviceBus::addSelfToDevices() 
-{
-    WITH_SEMAPHORE(_staticDevicesSem);
-    waitingQueueForCore1Thread.push(this);
-}
-
-void DeviceBus::startThreadsOnCore1()
-{
-    WITH_SEMAPHORE(_staticDevicesSem);
-    while (!waitingQueueForCore1Thread.empty()) {
-        DeviceBus * dev = waitingQueueForCore1Thread.front();
-        waitingQueueForCore1Thread.pop();
-        dev->startThreadOnCore1();
-    }
-}
-
-void DeviceBus::startThreadOnCore1(void) {
-    WITH_SEMAPHORE(_deviceSem);
-    
-    if (!thread_should_start || thread_started) return;
-
-    const uint8_t name_len = 7;
-    char *name = (char *)malloc(name_len);
-    switch (hal_device->bus_type()) {
-    case AP_HAL::Device::BUS_TYPE_I2C:
-        snprintf(name, name_len, "I2C%u",
-                    hal_device->bus_num());
-        break;
-
-    case AP_HAL::Device::BUS_TYPE_SPI:
-        snprintf(name, name_len, "SPI%u",
-                    hal_device->bus_num());
-        break;
-    default:
-        break;
-    }
-
-    thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(HAL_DEVICE_THREAD_STACK),
-                                        name,
-                                        thread_priority,           /* Initial priority.    */
-                                        DeviceBus::bus_thread,    /* Thread function.     */
-                                        this);                     /* Thread parameter.    */
-    if (thread_ctx == nullptr) {
-        AP_HAL::panic("Failed to create bus thread %s", name);
-    }
-
-    thread_started = true;
-}
 
 /*
  * Adjust the timer for the next call: it needs to be called from the bus

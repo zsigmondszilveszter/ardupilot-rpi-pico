@@ -34,11 +34,12 @@
 #define RP2040_SPI0_MISO_GPIO_PIN 16
 #define RP2040_SPI0_MOSI_GPIO_PIN 19
 #define RP2040_SPI0_SCK_GPIO_PIN  18
-#define RP2040_SPI0_CS_0_GPIO_PIN 17
 #define RP2040_SPI1_MISO_GPIO_PIN 12
 #define RP2040_SPI1_MOSI_GPIO_PIN 15
 #define RP2040_SPI1_SCK_GPIO_PIN  14
-#define RP2040_SPI1_CS_0_GPIO_PIN 13
+#define HAL_DEFAULT_INS_FAST_SAMPLE 0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate
+#define RP2040_SPI_CS_FOR_MPU9250 13
+#define RP2040_SPI_CS_FOR_MPU6500 8
 
 // UART
 #define RP2040_UART0_TX_GPIO_PIN 0U
@@ -49,8 +50,8 @@
 #define RP2040_UART_TX_FIFO_SIZE 128
 #define RP2040_UART_RX_FIFO_SIZE 128
 // default USB CDC FIFO sizes
-#define RP2040_USB_CDC_TX_FIFO_SIZE 512
-#define RP2040_USB_CDC_RX_FIFO_SIZE 512
+#define RP2040_USB_CDC_TX_FIFO_SIZE 1024
+#define RP2040_USB_CDC_RX_FIFO_SIZE 512 + 256
 
 
 #define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))
@@ -69,20 +70,9 @@
 #define CONFIG_HAL_BOARD_SUBTYPE HAL_BOARD_SUBTYPE_NONE
 
 
-#ifdef CONFIG_HAL_RP2040_MPU9250_I2C
-// MPU 9250 on I2C interface
-// 0x68 is the MPU 9250 i2c low address
-#define HAL_INS_PROBE_LIST PROBE_IMU_I2C(Invensense, 0, 0x68, ROTATION_NONE)
-// 0x0c is the AK8963 compass address on the MPU 9250 
-#define HAL_MAG_PROBE_LIST PROBE_MAG_IMU_I2C(AK8963, mpu9250, 0, 0x0c, ROTATION_NONE)
-#endif
-
-// default interface for MPU9250 IMU is SPI
-#ifndef CONFIG_HAL_RP2040_MPU9250_I2C
 // MPU 9250 on SPI interface
-#define HAL_INS_PROBE_LIST PROBE_IMU_SPI(Invensense, "mpu9250", ROTATION_NONE)
+#define HAL_INS_PROBE_LIST PROBE_IMU_SPI(Invensense, "mpu9250", ROTATION_NONE);PROBE_IMU_SPI(Invensense, "mpu6500", ROTATION_NONE)
 #define HAL_MAG_PROBE_LIST PROBE_MAG_IMU(AK8963, mpu9250, 0, ROTATION_NONE)
-#endif
 
 // 0x76 is the BMP280 i2c low address
 #define HAL_BARO_PROBE_LIST PROBE_BARO_I2C(BMP280, 1, 0x76)
@@ -105,15 +95,31 @@
 // GPIO configuration
 
 #define HAL_GPIO_PINS { \
-{  25, true,  0, 25U},  /* LED_GREEN OUTPUT */ \
-{  6,  true,  0, 6U },  /* LED_RED1 OUTPUT */ \
-{  9,  true,  0, 9U },  /* LED_RED2 OUTPUT */ \
+{  25,                          true,   0, 25U },  /* LED_GREEN OUTPUT */ \
+{  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
+{  9,                           true,   0, 9U  },  /* LED_RED2 OUTPUT */ \
+{  RP2040_SPI_CS_FOR_MPU9250,   true,   0, RP2040_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
+{  RP2040_SPI_CS_FOR_MPU6500,   true,   0, RP2040_SPI_CS_FOR_MPU6500 }    /* SPI CS for mpu6500 */ \
 }
 
 
 // I2C configuration
-
 #define HAL_I2C0_CONFIG { &I2CD0, 0, 0, 0, RP2040_I2C0_SCL_GPIO_PIN, RP2040_I2C0_SDA_GPIO_PIN }
 #define HAL_I2C1_CONFIG { &I2CD1, 0, 0, 0, RP2040_I2C1_SCL_GPIO_PIN, RP2040_I2C1_SDA_GPIO_PIN }
 
 #define HAL_I2C_DEVICE_LIST HAL_I2C0_CONFIG,HAL_I2C1_CONFIG
+
+
+// SPI configuration 
+#define HAL_SPI_BUS_LIST {&SPID0,0},{&SPID1,1}
+
+// SPI device table
+#define HAL_SPI_DEVICE0  SPIDesc("mpu9250", 1, 1, \
+    RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
+    RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU9250, \
+    0, 1*MHZ,  10*MHZ)
+#define HAL_SPI_DEVICE1  SPIDesc("mpu6500", 1, 2, \
+    RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
+    RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU6500, \
+    0, 1*MHZ,  10*MHZ)
+#define HAL_SPI_DEVICE_LIST HAL_SPI_DEVICE0,HAL_SPI_DEVICE1

@@ -393,23 +393,16 @@ size_t mem_available(void)
  */
 thread_t *thread_create_alloc(size_t size,
                               const char *name, tprio_t prio,
-                              tfunc_t pf, void *arg)
+                              tfunc_t pf, void *arg, os_instance_t * os_inst)
 {
-    thread_t *ret;
-    // first try default heap
-    ret = chThdCreateFromHeap(NULL, size, name, prio, pf, arg);
-    if (ret != NULL) {
-        return ret;
-    }
+    if (os_inst == NULL) os_inst = &ch0;
 
-    // now try other heaps
-    uint8_t i;
-    for (i=1; i<NUM_MEMORY_REGIONS; i++) {
-        ret = chThdCreateFromHeap(&heaps[i], size, name, prio, pf, arg);
-        if (ret != NULL) {
-            return ret;
-        }
-    }
+    void *wbase, *wend;
+    wbase = chHeapAllocAligned(NULL, size, PORT_WORKING_AREA_ALIGN);
+    wend = (void *)((uint8_t *)wbase + size);
+    thread_descriptor_t td = THD_DESCRIPTOR_AFFINITY(name, (stkalign_t*)wbase, (stkalign_t*)wend, prio, pf, arg, os_inst); 
+    return chThdCreate(&td);
+
     return NULL;
 }
 #endif

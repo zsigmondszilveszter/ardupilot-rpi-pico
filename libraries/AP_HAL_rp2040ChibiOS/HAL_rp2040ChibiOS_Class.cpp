@@ -24,7 +24,7 @@ static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
 static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
-// static SPIDeviceManager spiDeviceManager;
+static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
 static GPIO gpioDriver;
@@ -48,7 +48,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,            /* no uartI */
         nullptr,            /* no uartJ*/
         &i2cDeviceManager,
-        nullptr,// &spiDeviceManager,
+        &spiDeviceManager,
         nullptr,// $qspiDeviceManager,
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
@@ -64,7 +64,6 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr)    // no CAN       
 {}
 
-static bool start_core_1 = false;
 static bool core_1_started = false;
 static bool thread_running = false;        /**< Daemon status flag */
 static thread_t* daemon_task;              /**< Handle of daemon task / thread */
@@ -100,7 +99,6 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      */
     chThdSetPriority(APM_MAIN_PRIORITY);
 
-    start_core_1 = true;
     // Wait until core1 and the USB console is initialized 
     while (!core_1_started) {
         chThdSleepMicroseconds(10);
@@ -118,8 +116,8 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
     hal_chibios_set_priority(APM_STARTUP_PRIORITY);
 
     schedulerInstance.hal_initialized();
+    hal.serial(0)->begin(115200);
     callbacks->setup();
-    
 
 
 #if !defined(DISABLE_WATCHDOG)
@@ -162,7 +160,6 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
         schedulerInstance.watchdog_pat();
     }
     thread_running = false;
-    start_core_1 = false;
 }
 
 const AP_HAL::HAL& AP_HAL::get_HAL() {
@@ -182,35 +179,13 @@ extern "C" {
 
         usb_initialise();
 
-        // Wait until the scheduler is initialized on core0
-        while (!start_core_1) {
-            hal.scheduler->delay_microseconds(10);
-        }
-        hal.serial(0)->begin(115200);
         core_1_started = true;
-
-        Rp2040ChibiOS::Scheduler * scheduler = (Rp2040ChibiOS::Scheduler *) hal.scheduler;
-        scheduler->init_core1();
-
-        Rp2040ChibiOS::UsbCdcConsole * usbCdcConsole = (Rp2040ChibiOS::UsbCdcConsole *) hal.serial(0);
-        usbCdcConsole->writeThread();
-        usbCdcConsole->readThread();
-
-        Rp2040ChibiOS::UARTDriver * uart0 = (Rp2040ChibiOS::UARTDriver *) hal.serial(3);
-        uart0->writeThread();
-        uart0->readThread();
-        Rp2040ChibiOS::UARTDriver * uart1 = (Rp2040ChibiOS::UARTDriver *) hal.serial(5);
-        uart1->writeThread();
-        uart1->readThread();
 
         chThdSetPriority(LOWPRIO);
 
         while(true) {
-            Rp2040ChibiOS::DeviceBus::startThreadsOnCore1();
             hal.scheduler->delay_microseconds(1000);
         }
-
-        core_1_started = false;
         return 0;
     }
 }

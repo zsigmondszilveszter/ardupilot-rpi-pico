@@ -12,6 +12,7 @@
 #define APM_TIMER_PRIORITY      181
 #define APM_IO_PRIORITY          58
 #define APM_STARTUP_PRIORITY     10
+#define APM_UART_PRIORITY        60
 #define APM_SCRIPTING_PRIORITY  LOWPRIO
 
 /*
@@ -19,6 +20,24 @@
  */
 #ifndef APM_MAIN_PRIORITY_BOOST
 #define APM_MAIN_PRIORITY_BOOST 182
+#endif
+
+#ifndef APM_SPI_PRIORITY
+// SPI priority needs to be above main priority to ensure fast sampling of IMUs can keep up
+// with the data rate
+#define APM_SPI_PRIORITY        181
+#endif
+
+#ifndef APM_I2C_PRIORITY
+#define APM_I2C_PRIORITY        176
+#endif
+
+#ifndef USB_CDC_THREAD_PRIORITY
+#define USB_CDC_THREAD_PRIORITY  APM_UART_PRIORITY
+#endif
+
+#ifndef UART_THREAD_PRIORITY 
+#define UART_THREAD_PRIORITY APM_UART_PRIORITY
 #endif
 
 #ifndef TIMER_THD_WA_SIZE

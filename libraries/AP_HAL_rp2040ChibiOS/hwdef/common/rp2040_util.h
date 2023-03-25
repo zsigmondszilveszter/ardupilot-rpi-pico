@@ -25,7 +25,7 @@ size_t mem_available(void);
 void *malloc_dma(size_t size);
 void *malloc_axi_sram(size_t size);
 void *malloc_fastmem(size_t size);
-thread_t *thread_create_alloc(size_t size, const char *name, tprio_t prio, tfunc_t pf, void *arg);
+thread_t *thread_create_alloc(size_t size, const char *name, tprio_t prio, tfunc_t pf, void *arg, os_instance_t * os_inst);
 
 struct memory_region {
     void *address;
