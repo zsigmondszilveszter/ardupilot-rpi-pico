@@ -188,16 +188,12 @@ uint32_t Rp2040ChibiOS::UARTDriver::txspace() {
     return txFIFO.space();
 }
 
-int16_t Rp2040ChibiOS::UARTDriver::read() { 
-    if (!is_initialized()) return 0;
+bool Rp2040ChibiOS::UARTDriver::read(uint8_t &b) { 
+    if (!is_initialized()) return false;
 
     WITH_SEMAPHORE(_rxUartMutex);
 
-    uint8_t ret = -1;
-    if (!rxFIFO.read_byte(&ret)) {
-        return -1;
-    }
-    return ret;
+    return !rxFIFO.read_byte(&b);
 }
 
 ssize_t Rp2040ChibiOS::UARTDriver::read(uint8_t *buffer, uint16_t count)

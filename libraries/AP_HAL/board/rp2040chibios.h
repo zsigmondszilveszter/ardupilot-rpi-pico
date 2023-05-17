@@ -12,9 +12,11 @@
 #define HAL_BOARD_STORAGE_DIRECTORY			"/SDCARD/APM/STORAGE"
 #define HAL_BOARD_TERRAIN_DIRECTORY			"/SDCARD/APM/TERRAIN"
 
+#ifdef __cplusplus
 // allow for static semaphores
 #include <AP_HAL_rp2040ChibiOS/Semaphores.h>
 #define HAL_Semaphore Rp2040ChibiOS::Semaphore
+#endif
 
 // Scheduler
 #define RP2040_MAX_TIMER_PROC 32
@@ -53,13 +55,6 @@
 #define RP2040_USB_CDC_TX_FIFO_SIZE 1024
 #define RP2040_USB_CDC_RX_FIFO_SIZE 512 + 256
 
-
-#define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))
-#define PROBE_IMU_I2C(driver, bus, addr, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,GET_I2C_DEVICE(bus, addr),##args))
-#define PROBE_BARO_I2C(driver, bus, addr, args ...) ADD_BACKEND(AP_Baro_ ## driver::probe(*this,std::move(GET_I2C_DEVICE(bus, addr)),##args))
-#define PROBE_MAG_IMU_I2C(driver, imudev, bus, addr, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe_ ## imudev(GET_I2C_DEVICE(bus,addr),##args))
-#define PROBE_MAG_SPI(driver, devname, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe(hal.spi->get_device(devname),##args))
-#define PROBE_MAG_IMU(driver, imudev, imu_instance, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe_ ## imudev(imu_instance,##args))
 // 
 #define HAL_BOARD_NAME "Raspberry Pi Pico"
 #define HAL_CPU_CLASS HAL_CPU_CLASS_150
@@ -70,12 +65,31 @@
 #define CONFIG_HAL_BOARD_SUBTYPE HAL_BOARD_SUBTYPE_NONE
 
 
+#define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))
+#define PROBE_IMU_I2C(driver, bus, addr, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,GET_I2C_DEVICE(bus, addr),##args))
+#define PROBE_BARO_I2C(driver, bus, addr, args ...) ADD_BACKEND(AP_Baro_ ## driver::probe(*this,std::move(GET_I2C_DEVICE(bus, addr)),##args))
+#define PROBE_MAG_IMU_I2C(driver, imudev, bus, addr, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe_ ## imudev(GET_I2C_DEVICE(bus,addr),##args))
+#define PROBE_MAG_I2C(driver, bus, addr, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe(hal.i2c_mgr->get_device(bus, addr),##args))
+#define PROBE_MAG_SPI(driver, devname, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe(hal.spi->get_device(devname),##args))
+#define PROBE_MAG_IMU(driver, imudev, imu_instance, args ...) ADD_BACKEND(DRIVER_ ##driver, AP_Compass_ ## driver::probe_ ## imudev(imu_instance,##args))
+
 // MPU 9250 on SPI interface
-#define HAL_INS_PROBE_LIST PROBE_IMU_SPI(Invensense, "mpu9250", ROTATION_NONE);PROBE_IMU_SPI(Invensense, "mpu6500", ROTATION_NONE)
-#define HAL_MAG_PROBE_LIST PROBE_MAG_IMU(AK8963, mpu9250, 0, ROTATION_NONE)
+#define PROBE_MPU9250_INS PROBE_IMU_SPI(Invensense, "mpu9250", ROTATION_NONE)
+#define PROBE_MPU9250_MAG PROBE_MAG_IMU(AK8963, mpu9250, 0, ROTATION_NONE)
 
 // 0x76 is the BMP280 i2c low address
-#define HAL_BARO_PROBE_LIST PROBE_BARO_I2C(BMP280, 1, 0x76)
+#define PROBE_BMP280_BARO PROBE_BARO_I2C(BMP280, 1, 0x76)
+
+// MPU 6500 on SPI
+#define PROBE_MPU6500_INS PROBE_IMU_SPI(Invensense, "mpu6500", ROTATION_NONE)
+
+// MAG3100
+#define PROBE_MAG3110_MAG PROBE_MAG_I2C(MAG3110, 1, 0x0E, ROTATION_NONE)
+
+
+#define HAL_INS_PROBE_LIST PROBE_MPU9250_INS; PROBE_MPU6500_INS
+#define HAL_MAG_PROBE_LIST PROBE_MPU9250_MAG; PROBE_MAG3110_MAG
+#define HAL_BARO_PROBE_LIST PROBE_BMP280_BARO
 
 #define HAL_HAVE_BOARD_VOLTAGE 1
 #define HAL_HAVE_SERVO_VOLTAGE 0

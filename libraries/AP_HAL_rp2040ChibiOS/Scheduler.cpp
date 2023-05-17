@@ -18,6 +18,7 @@
 #include <AP_HAL/AP_HAL.h>
 #include "AP_HAL_rp2040ChibiOS.h"
 #include <AP_Math/AP_Math.h>
+#include <AP_HAL_rp2040ChibiOS/RCInput.h>
 #include <AP_InternalError/AP_InternalError.h>
 
 #include <hal.h>
@@ -52,11 +53,6 @@ void Scheduler::init()
                      _timer_thread,             /* Thread function.     */
                      this);                     /* Thread parameter.    */
 #endif
-}
-
-// ************ init on CORE1 ************
-void Scheduler::init_core1() {
-
 #ifndef HAL_NO_MONITOR_THREAD
     // setup the monitor thread - this is used to detect software lockups
     _monitor_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(MONITOR_THD_WA_SIZE),
@@ -69,10 +65,18 @@ void Scheduler::init_core1() {
 #ifndef HAL_USE_EMPTY_IO
     // the IO thread runs at lower priority
     _io_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(IO_THD_WA_SIZE),
-                                              "IO_THREAD",
-                                              APM_IO_PRIORITY,
-                                              _io_thread,
-                                              this, &ch1);
+                                        "IO_THREAD",
+                                        APM_IO_PRIORITY,
+                                        _io_thread,
+                                        this, &ch1);
+#endif
+#ifndef HAL_NO_RCIN_THREAD
+    // setup the RCIN thread - this will call tasks at 1kHz
+    _rcin_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(RCIN_THD_WA_SIZE),
+                                            "RCIN_THREAD",
+                                            APM_RCIN_PRIORITY, 
+                                            _rcin_thread, 
+                                            this, &ch1);
 #endif
 }
 
@@ -448,6 +452,20 @@ void Scheduler::_monitor_thread(void *arg)
     }
 }
 #endif // HAL_NO_MONITOR_THREAD
+
+void Scheduler::_rcin_thread(void *arg)
+{
+    Scheduler *sched = (Scheduler *)arg;
+    chRegSetThreadName("rcin");
+    while (!sched->_hal_initialized) {
+        sched->delay_microseconds(20000);
+    }
+    hal.rcin->init();
+    while (true) {
+        sched->delay_microseconds(1000);
+        ((RCInput *)hal.rcin)->_timer_tick();
+    }
+}
 
 void Scheduler::_run_io(void)
 {

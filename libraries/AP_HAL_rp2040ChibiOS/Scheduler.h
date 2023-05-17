@@ -10,6 +10,7 @@
 #define APM_MONITOR_PRIORITY    183
 #define APM_MAIN_PRIORITY       180
 #define APM_TIMER_PRIORITY      181
+#define APM_RCIN_PRIORITY       177
 #define APM_IO_PRIORITY          58
 #define APM_STARTUP_PRIORITY     10
 #define APM_UART_PRIORITY        60
@@ -52,11 +53,14 @@
 #define MONITOR_THD_WA_SIZE 1024
 #endif
 
+#ifndef RCIN_THD_WA_SIZE
+#define RCIN_THD_WA_SIZE    1024
+#endif
+
 class Rp2040ChibiOS::Scheduler : public AP_HAL::Scheduler {
 public:
     Scheduler();
     void     init() override;
-    void     init_core1();
     void     delay(uint16_t ms) override;
     void     delay_microseconds(uint16_t us) override;
     void     delay_microseconds_boost(uint16_t us) override;
@@ -123,6 +127,7 @@ private:
     thread_t* _timer_thread_ctx;
     thread_t* _io_thread_ctx;
     thread_t* _monitor_thread_ctx;
+    thread_t* _rcin_thread_ctx;
 
 #if CH_CFG_USE_SEMAPHORES == TRUE
     binary_semaphore_t _timer_semaphore;
@@ -132,6 +137,7 @@ private:
     static void _timer_thread(void *arg);
     static void _io_thread(void *arg);
     static void _monitor_thread(void *arg);
+    static void _rcin_thread(void *arg);
 
     void _run_timers();
     void _run_io(void);

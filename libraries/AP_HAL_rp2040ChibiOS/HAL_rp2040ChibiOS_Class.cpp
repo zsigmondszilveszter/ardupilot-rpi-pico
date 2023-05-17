@@ -29,6 +29,7 @@ static SPIDeviceManager spiDeviceManager;
 // static Storage storageDriver;
 static GPIO gpioDriver;
 // static RCInput rcinDriver;
+static RCInput rcinDriver{nullptr, &uartFDriver};
 // static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
 static Rp2040ChibiOS::Util utilInstance;
@@ -54,7 +55,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,// &storageDriver,
         &console_over_USB,
         &gpioDriver,
-        nullptr,// &rcinDriver,
+        &rcinDriver,
         nullptr,// &rcoutDriver,
         &schedulerInstance,
         &utilInstance,
