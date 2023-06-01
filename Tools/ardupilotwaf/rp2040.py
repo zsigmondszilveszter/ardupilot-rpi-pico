@@ -27,6 +27,9 @@ def _load_dynamic_env_data(bld):
         if not d in idirs2:
             idirs2.append(d)
     _dynamic_env_data['include_dirs'] = idirs2
+    # Szilv: one more additional header location to include
+    _dynamic_env_data['include_dirs'].append(bld.srcnode.make_node(('modules/rp2040ChibiOS/')).abspath() + "/ext/pico-sdk/src/rp2_common/hardware_pio/include")
+    
 
 @feature('ch_ap_library', 'ch_ap_program')
 @before_method('process_source')

@@ -127,6 +127,10 @@ include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
 include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
 endif
 
+# add the PIO header location as well
+ALLINC  += $(PICOSDKROOT)/src/rp2_common/hardware_pio/include
+
+
 # Define linker script file here
 LDSCRIPT= RP2040_FLASH.ld
 
@@ -140,7 +144,8 @@ CSRC += $(HWDEF)/common/hrt.c \
      $(HWDEF)/common/board.c \
      $(HWDEF)/common/rp2040_util.c \
      $(HWDEF)/common/usbcfg.c \
-     $(HWDEF)/common/bouncebuffer.c
+     $(HWDEF)/common/bouncebuffer.c \
+     $(HWDEF)/common/pio.c
 
 #	   $(TESTSRC) \
 #	   test.c

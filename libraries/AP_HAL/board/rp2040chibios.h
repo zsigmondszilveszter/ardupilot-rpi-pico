@@ -55,6 +55,10 @@
 #define RP2040_USB_CDC_TX_FIFO_SIZE 1024
 #define RP2040_USB_CDC_RX_FIFO_SIZE 512 + 256
 
+// RC IN
+#define RP2040_RC_IBUS_RX_PIN 7U
+#define RP2040_RC_SBUS_RX_PIN 8U
+
 // 
 #define HAL_BOARD_NAME "Raspberry Pi Pico"
 #define HAL_CPU_CLASS HAL_CPU_CLASS_150
@@ -96,10 +100,6 @@
 #define HAL_HAVE_SAFETY_SWITCH 0
 
 #define HAL_DSHOT_ALARM 0
-
-// RCIN (Remove Control Input)
-#define HAL_SERIAL5_PROTOCOL SerialProtocol_RCIN
-#define HAL_SERIAL5_BAUD 115200
 
 
 #define HAVE_FILESYSTEM_SUPPORT 1

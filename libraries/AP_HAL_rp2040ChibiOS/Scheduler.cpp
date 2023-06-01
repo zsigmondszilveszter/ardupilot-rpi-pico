@@ -462,7 +462,8 @@ void Scheduler::_rcin_thread(void *arg)
     }
     hal.rcin->init();
     while (true) {
-        sched->delay_microseconds(1000);
+        // TODO, copy PIO uart data to buffers with DMA and change back this delay to 1000us
+        sched->delay_microseconds(300);
         ((RCInput *)hal.rcin)->_timer_tick();
     }
 }

@@ -23,6 +23,10 @@
 
 #include <AP_Math/AP_Math.h>
 
+#include "hwdef/common/pio.h"
+#include "hwdef/common/rc_rx_sbus_uart.pio.h"
+#include "hwdef/common/rc_rx_ibus_uart.pio.h"
+
 #ifndef HAL_NO_UARTDRIVER
 #include <GCS_MAVLink/GCS.h>
 #endif
@@ -32,44 +36,51 @@ using namespace Rp2040ChibiOS;
 extern const AP_HAL::HAL& hal;
 
 // constructor
-RCInput::RCInput(UARTDriver *_dev_inverted, UARTDriver *_dev_115200) : AP_HAL::RCInput(), 
-    dev_inverted(_dev_inverted),
-    dev_115200(_dev_115200)
+RCInput::RCInput(bool sbus, bool ibus) : AP_HAL::RCInput(), 
+    enable_sbus(sbus),
+    enable_ibus(ibus)
 {}
 
 void RCInput::init()
 {
-    if (dev_inverted) {
-        open_sbus(dev_inverted);
-        fd_inverted = true;
-    } else {
-        fd_inverted = false;
+    hal_lld_peripheral_reset(RESETS_ALLREG_PIO0);
+    hal_lld_peripheral_reset(RESETS_ALLREG_PIO1);
+    hal_lld_peripheral_unreset(RESETS_ALLREG_PIO0);
+    hal_lld_peripheral_unreset(RESETS_ALLREG_PIO1);
+
+    if (enable_ibus) {
+        open_ibus();
     }
-    inverted_is_115200 = false;
-    if (dev_115200) {
-        open_115200(dev_115200);
-        fd_115200 = true;
-    } else {
-        fd_115200 = false;
+    // don't open sbus if both ibus and sbus are enabled and their input pins are the same
+    // may later I add some logic to detect protocoll
+    if ((RP2040_RC_SBUS_RX_PIN != RP2040_RC_IBUS_RX_PIN || !enable_ibus ) && enable_sbus) {
+        open_sbus();
     }
+    
     AP::RC().init();
     _init = true;
 }
 
 /*
-  open a SBUS UART
+  open an SBUS UART
  */
-void RCInput::open_sbus(UARTDriver *uart)
+void RCInput::open_sbus()
 {
-    (void)uart;
+    WITH_SEMAPHORE(rcin_mutex);
+    // Set up the state machine we're going to use to receive them.
+    uint32_t offset = pio_add_program(sbus_pio, &rc_rx_sbus_uart_pio_program);
+    rc_rx_uart_pio_program_init(sbus_pio, sbus_sm, offset, RP2040_RC_SBUS_RX_PIN, SBUS_BAUD, SBUS);
 }
 
 /*
-  open a 115200 UART
+  open am IBUS UART
  */
-void RCInput::open_115200(UARTDriver *uart)
+void RCInput::open_ibus()
 {
-    uart->begin(115200, 128, 0);
+    WITH_SEMAPHORE(rcin_mutex);
+    // Set up the state machine we're going to use to receive them.
+    uint32_t offset = pio_add_program(ibus_pio, &rc_rx_ibus_uart_pio_program);
+    rc_rx_uart_pio_program_init(ibus_pio, ibus_sm, offset, RP2040_RC_IBUS_RX_PIN, IBUS_BAUD, IBUS);
 }
 
 /*
@@ -130,28 +141,34 @@ uint8_t RCInput::read(uint16_t* periods, uint8_t len)
         memcpy(periods, _rc_values, len*sizeof(periods[0]));
     }
     return len;
-}
+} 
 
 void RCInput::_timer_tick(void)
 {
     if (!_init) {
         return;
     }
-uint8_t b[80];
 
-    if (fd_inverted) {
-        ssize_t n = dev_inverted->read(&b[0], sizeof(b));
-        if (n > 0) {
-            for (uint8_t i=0; i<n; i++) {
-                AP::RC().process_byte(b[i], inverted_is_115200 ? 115200 : 100000);
+    // S.BUS
+    if (enable_sbus) {
+        WITH_SEMAPHORE(rcin_mutex);
+        uint32_t nr_of_bytes = pio_sm_get_rx_fifo_level(sbus_pio, sbus_sm);
+        if (nr_of_bytes > 0 ) {
+            for (uint8_t i=0; i<nr_of_bytes; i++) {
+                uint8_t b = rc_rx_uart_pio_program_getc(sbus_pio, sbus_sm);
+                AP::RC().process_byte(b, SBUS_BAUD);
             }
         }
     }
-    if (fd_115200) {
-        ssize_t n = dev_115200->read(&b[0], sizeof(b));
-        if (n > 0 && !inverted_is_115200) {
-            for (uint8_t i=0; i<n; i++) {
-                AP::RC().process_byte(b[i], 115200);
+
+    // I.BUS
+    if (enable_ibus) {
+        WITH_SEMAPHORE(rcin_mutex);
+        uint32_t nr_of_bytes = pio_sm_get_rx_fifo_level(ibus_pio, ibus_sm);
+        if (nr_of_bytes > 0 ) {
+            for (uint8_t i=0; i<nr_of_bytes; i++) {
+                uint8_t b = rc_rx_uart_pio_program_getc(ibus_pio, ibus_sm);
+                AP::RC().process_byte(b, IBUS_BAUD);
             }
         }
     }
@@ -163,20 +180,6 @@ uint8_t b[80];
             _rc_values[i] = AP::RC().read(i);
         }
         _num_channels = n;
-    }
-
-    uint32_t now = AP_HAL::millis();
-    if (fd_inverted && now - last_frame_ms > 2000) {
-        // no inverted data for 2s, flip baudrate
-        inverted_is_115200 = !inverted_is_115200;
-        if (inverted_is_115200) {
-            open_115200(dev_inverted);
-            fd_inverted = true;
-        } else {
-            open_sbus(dev_inverted);
-            fd_inverted = true;
-        }
-        last_frame_ms = now;
     }
 }
 

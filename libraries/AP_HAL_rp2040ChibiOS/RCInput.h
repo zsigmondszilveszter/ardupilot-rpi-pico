@@ -19,7 +19,7 @@
 
 #include "AP_HAL_rp2040ChibiOS.h"
 #include "Semaphores.h"
-#include "UARTDriver.h"
+#include "hwdef/common/pio.h"
 
 #include <AP_RCProtocol/AP_RCProtocol.h>
 
@@ -28,11 +28,14 @@
 #define RC_INPUT_MAX_CHANNELS 18
 #endif
 
+#define SBUS_BAUD 100000
+#define IBUS_BAUD 115200
+
 namespace Rp2040ChibiOS {
 
 class RCInput : public AP_HAL::RCInput {
 public:
-    RCInput(UARTDriver *dev_sbus, UARTDriver *dev_115200);
+    RCInput(bool sbus, bool ibus);
     void init() override;
     bool new_input() override;
     uint8_t num_channels() override;
@@ -55,8 +58,8 @@ public:
     bool rc_bind(int dsmMode) override;
 
 protected:
-    void open_sbus(UARTDriver *uart);
-    void open_115200(UARTDriver *uart);
+    void open_sbus();
+    void open_ibus();
 
     uint16_t _rc_values[RC_INPUT_MAX_CHANNELS] = {0};
 
@@ -67,13 +70,14 @@ protected:
     int16_t _rx_link_quality = -1;
     uint32_t _rcin_timestamp_last_signal;
 
-    UARTDriver * dev_inverted;
-    UARTDriver * dev_115200;
+    PIO ibus_pio = pio0;
+    uint ibus_sm = 0;
+    PIO sbus_pio = pio0;
+    uint sbus_sm = 1;
 
-    bool fd_inverted = false;
-    bool fd_115200 = false;
+    bool enable_sbus = false;
+    bool enable_ibus = false;
     uint32_t last_frame_ms;
-    bool inverted_is_115200;
 
     bool _init;
     const char *last_protocol;

@@ -22,14 +22,13 @@ using namespace Rp2040ChibiOS;
 
 static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
-static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
+// static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
 static GPIO gpioDriver;
-// static RCInput rcinDriver;
-static RCInput rcinDriver{nullptr, &uartFDriver};
+static RCInput rcinDriver{false, true};
 // static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
 static Rp2040ChibiOS::Util utilInstance;
@@ -43,7 +42,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
         nullptr,            /* no uartE */
-        &uartFDriver, //rcin                
+        nullptr, //&uartFDriver, //rcin                
         nullptr,            /* no uartG */
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
