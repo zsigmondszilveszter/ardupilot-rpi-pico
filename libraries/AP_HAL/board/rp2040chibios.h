@@ -59,7 +59,14 @@
 #define RP2040_RC_IBUS_RX_PIN 7U
 #define RP2040_RC_SBUS_RX_PIN 8U
 
-// 
+// RC out
+#define RP2040_NR_PWM_PERIPH_ENABLED 2
+#define RP2040_RC_OUT0 20U
+#define RP2040_RC_OUT1 21U
+#define RP2040_RC_OUT2 22U
+#define RP2040_RC_OUT3 26U
+
+//
 #define HAL_BOARD_NAME "Raspberry Pi Pico"
 #define HAL_CPU_CLASS HAL_CPU_CLASS_150
 #define HAL_MEM_CLASS HAL_MEM_CLASS_192
@@ -102,8 +109,8 @@
 #define HAL_DSHOT_ALARM 0
 
 
-#define HAVE_FILESYSTEM_SUPPORT 1
-#define HAL_OS_POSIX_IO 1
+#define HAL_OS_FATFS_IO 1
+#define HAL_OS_POSIX_IO 0
 
 
 // GPIO configuration
@@ -124,7 +131,7 @@
 #define HAL_I2C_DEVICE_LIST HAL_I2C0_CONFIG,HAL_I2C1_CONFIG
 
 
-// SPI configuration 
+// SPI configuration
 #define HAL_SPI_BUS_LIST {&SPID0,0},{&SPID1,1}
 
 // SPI device table

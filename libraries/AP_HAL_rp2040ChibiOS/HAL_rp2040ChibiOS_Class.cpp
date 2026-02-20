@@ -22,7 +22,6 @@ using namespace Rp2040ChibiOS;
 
 static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
-// static Rp2040ChibiOS::UARTDriver uartFDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;

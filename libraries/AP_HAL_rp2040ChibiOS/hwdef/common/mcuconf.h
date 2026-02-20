@@ -96,5 +96,11 @@
 #define RP_USB_USE_SOF_INTR                 TRUE
 #define RP_USB_USE_ERROR_DATA_SEQ_INTR      TRUE
 
+/**
+ * PWM driver system settings
+ */
+#define RP_PWM_USE_PWM0                     TRUE
+#define RP_PWM_USE_PWM1                     TRUE
+
 
 #endif /* MCUCONF_H */

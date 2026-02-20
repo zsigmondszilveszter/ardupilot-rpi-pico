@@ -2,6 +2,8 @@
 
 #include "AP_HAL_rp2040ChibiOS.h"
 
+#include "hal.h"
+
 class Rp2040ChibiOS::RCOutput : public AP_HAL::RCOutput {
     void     init() override;
     void     set_freq(uint32_t chmask, uint16_t freq_hz) override;
@@ -15,4 +17,7 @@ class Rp2040ChibiOS::RCOutput : public AP_HAL::RCOutput {
     void     push(void) override {}
 private:
     uint16_t value[16];
+
+    PWMConfig pwm_cfg[RP2040_NR_PWM_PERIPH_ENABLED];
+    PWMDriver pwm_drivers[RP2040_NR_PWM_PERIPH_ENABLED] = {PWMD0, PWMD1};
 };
