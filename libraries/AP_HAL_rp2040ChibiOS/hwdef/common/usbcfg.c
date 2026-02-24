@@ -315,12 +315,27 @@ static void sof_handler(USBDriver *usbp) {
 }
 
 /*
+ * Handling messages not implemented in the default handler nor in the
+ * SerialUSB handler.
+ */
+volatile bool cdc_dtr_active = false;
+static bool requests_hook(USBDriver *usbp) {
+    if ((usbp->setup[0] & USB_RTYPE_TYPE_MASK) == USB_RTYPE_TYPE_CLASS) {
+        if (usbp->setup[1] == CDC_SET_CONTROL_LINE_STATE) {
+            /* Bit 0 of wValue low byte is DTR. */
+            cdc_dtr_active = (usbp->setup[2] & 0x01U) != 0U;
+        }
+    }
+    return sduRequestsHook(usbp);
+}
+
+/*
  * USB driver configuration.
  */
 const USBConfig usbcfg = {
   usb_event,
   get_descriptor,
-  sduRequestsHook,
+  requests_hook,
   sof_handler
 };
 

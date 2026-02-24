@@ -24,7 +24,7 @@
 #include <hal.h>
 
 #include "Scheduler.h"
-#include "hwdef/common/rp2040_util.h"
+#include "hwdef/common/rp2xxx_util.h"
 
 #include <AP_BoardConfig/AP_BoardConfig.h>
 
@@ -59,7 +59,8 @@ void Scheduler::init()
                                               "MONITOR_THREAD",
                                               APM_MONITOR_PRIORITY,
                                               _monitor_thread,
-                                              this, &ch1);
+                                              this,
+                                              &ch1);
 #endif
 
 #ifndef HAL_USE_EMPTY_IO
@@ -68,15 +69,17 @@ void Scheduler::init()
                                         "IO_THREAD",
                                         APM_IO_PRIORITY,
                                         _io_thread,
-                                        this, &ch1);
+                                        this,
+                                        &ch1);
 #endif
 #ifndef HAL_NO_RCIN_THREAD
     // setup the RCIN thread - this will call tasks at 1kHz
     _rcin_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(RCIN_THD_WA_SIZE),
                                             "RCIN_THREAD",
-                                            APM_RCIN_PRIORITY, 
-                                            _rcin_thread, 
-                                            this, &ch1);
+                                            APM_RCIN_PRIORITY,
+                                            _rcin_thread,
+                                            this,
+                                            &ch1);
 #endif
 }
 
@@ -591,7 +594,8 @@ bool Scheduler::thread_create(AP_HAL::MemberProc proc, const char *name, uint32_
                                                name,
                                                thread_priority,
                                                thread_create_trampoline,
-                                               tproc, NULL);
+                                               tproc,
+                                               NULL);
     if (thread_ctx == nullptr) {
         free(tproc);
         return false;

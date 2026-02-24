@@ -18,6 +18,6 @@ class Rp2040ChibiOS::RCOutput : public AP_HAL::RCOutput {
 private:
     uint16_t value[16];
 
-    PWMConfig pwm_cfg[RP2040_NR_PWM_PERIPH_ENABLED];
-    PWMDriver pwm_drivers[RP2040_NR_PWM_PERIPH_ENABLED] = {PWMD0, PWMD1};
+    //PWMConfig pwm_cfg[RP2040_NR_PWM_PERIPH_ENABLED];
+    //PWMDriver pwm_drivers[RP2040_NR_PWM_PERIPH_ENABLED] = {PWMD0, PWMD1};
 };

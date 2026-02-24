@@ -22,12 +22,13 @@ using namespace Rp2040ChibiOS;
 
 static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
+static Rp2040ChibiOS::UARTDriver uartADriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
 static GPIO gpioDriver;
-static RCInput rcinDriver{false, true};
+static RCInput rcinDriver{false, true}; // sbus, ibus
 // static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
 static Rp2040ChibiOS::Util utilInstance;
@@ -41,7 +42,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
         nullptr,            /* no uartE */
-        nullptr, //&uartFDriver, //rcin                
+        nullptr, //&uartFDriver, //rcin
         nullptr,            /* no uartG */
         nullptr,            /* no uartH */
         nullptr,            /* no uartI */
@@ -60,13 +61,14 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,// &opticalFlowDriver,
         nullptr,// &flashDriver,
         nullptr, /* no DSP */
-        nullptr)    // no CAN       
+        nullptr)    // no CAN
 {}
 
 static bool core_1_started = false;
 static bool thread_running = false;        /**< Daemon status flag */
 static thread_t* daemon_task;              /**< Handle of daemon task / thread */
 extern const AP_HAL::HAL& hal;
+semaphore_t core_sync_sem;
 
 /*
   set the priority of the main APM task
@@ -93,15 +95,15 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
 {
     daemon_task = chThdGetSelfX();
 
+    chSemObjectInit(&core_sync_sem, 0);
+
     /*
       switch to high priority for main loop
      */
     chThdSetPriority(APM_MAIN_PRIORITY);
 
-    // Wait until core1 and the USB console is initialized 
-    while (!core_1_started) {
-        chThdSleepMicroseconds(10);
-    }
+    // Wait until core1 and the USB console is initialized
+    chSemWait(&core_sync_sem);
 
     /* initialize all drivers and private members here.
      * up to the programmer to do this in the correct order.
@@ -179,6 +181,7 @@ extern "C" {
         usb_initialise();
 
         core_1_started = true;
+        chSemSignal(&core_sync_sem);
 
         chThdSetPriority(LOWPRIO);
 

@@ -25,7 +25,7 @@
 #include "Scheduler.h"
 #include "Semaphores.h"
 #include "Util.h"
-#include "hwdef/common/rp2040_util.h"
+#include "hwdef/common/rp2xxx_util.h"
 
 #ifndef HAL_DEVICE_THREAD_STACK
 #define HAL_DEVICE_THREAD_STACK 1024
@@ -128,7 +128,7 @@ AP_HAL::Device::PeriodicHandle DeviceBus::register_periodic_callback(uint32_t pe
                                             thread_priority,           /* Initial priority.    */
                                             DeviceBus::bus_thread,    /* Thread function.     */
                                             this,                       /* Thread parameter.    */
-                                            &ch1);                    /* OS instance / core).    */ 
+                                            &ch1);                    /* OS instance / core).    */
         if (thread_ctx == nullptr) {
             AP_HAL::panic("Failed to create bus thread %s", name);
         }

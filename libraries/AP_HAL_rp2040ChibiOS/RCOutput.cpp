@@ -8,20 +8,21 @@ using namespace Rp2040ChibiOS;
 #define DEFAULT_ESC_PWM_PERIOD  6000
 
 void RCOutput::init() {
-    for (uint8_t i = 0; i < RP2040_NR_PWM_PERIPH_ENABLED; i++) {
-        // set some initial values
-        pwm_cfg[i].frequency = DEFAULT_ESC_PWM_FREQ;
-        pwm_cfg[i].period = DEFAULT_ESC_PWM_PERIOD;
-        // start the peripherals
-        pwmStart(&pwm_drivers[i], &pwm_cfg[i]);
-    }
+    //for (uint8_t i = 0; i < RP2040_NR_PWM_PERIPH_ENABLED; i++) {
+    //    // set some initial values
+    //    pwm_cfg[i].frequency = DEFAULT_ESC_PWM_FREQ;
+    //    pwm_cfg[i].period = DEFAULT_ESC_PWM_PERIOD;
+    //    // start the peripherals
+    //    pwmStart(&pwm_drivers[i], &pwm_cfg[i]);
+    //}
 }
 
 void RCOutput::set_freq(uint32_t chmask, uint16_t freq_hz) {}
 
 uint16_t RCOutput::get_freq(uint8_t chan) {
-    uint8_t periphNr = chan / 2;
-    return pwm_drivers[periphNr].period;
+    //uint8_t periphNr = chan / 2;
+    //return pwm_drivers[periphNr].period;
+    return 0;
 }
 
 void RCOutput::enable_ch(uint8_t chan)

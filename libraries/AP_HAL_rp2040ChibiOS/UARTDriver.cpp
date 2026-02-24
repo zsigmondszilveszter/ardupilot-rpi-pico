@@ -1,6 +1,6 @@
 #include "UARTDriver.h"
 #include "Scheduler.h"
-#include "rp2040_util.h"
+#include "rp2xxx_util.h"
 
 #ifndef UART_WRITE_THD_WA_SIZE
 #define UART_WRITE_THD_WA_SIZE RP2040_UART_TX_FIFO_SIZE + 32
@@ -15,12 +15,12 @@ extern const AP_HAL::HAL& hal;
 Rp2040ChibiOS::UARTDriver::UARTDriver(int8_t serial_num) {
     _serial_num = serial_num;
     switch (_serial_num) {
-        case 0: 
+        case 0:
             uart_driver_inst = &SIOD0;
             palSetLineMode(RP2040_UART0_TX_GPIO_PIN, PAL_MODE_ALTERNATE_UART);
             palSetLineMode(RP2040_UART0_RX_GPIO_PIN, PAL_MODE_ALTERNATE_UART);
             break;
-        case 1: 
+        case 1:
             uart_driver_inst = &SIOD1;
             palSetLineMode(RP2040_UART1_TX_GPIO_PIN, PAL_MODE_ALTERNATE_UART);
             palSetLineMode(RP2040_UART1_RX_GPIO_PIN, PAL_MODE_ALTERNATE_UART);
@@ -36,7 +36,8 @@ void Rp2040ChibiOS::UARTDriver::writeThread() {
                 "UART_TX",
                 UART_THREAD_PRIORITY,        /* Initial priority.    */
                 _uart_write_thread,             /* Thread function.     */
-                this, &ch1);
+                this,
+                &ch1);
     }
 }
 
@@ -47,7 +48,8 @@ void Rp2040ChibiOS::UARTDriver::readThread() {
                 "UART_RX",
                 UART_THREAD_PRIORITY,        /* Initial priority.    */
                 _uart_read_thread,             /* Thread function.     */
-                this, &ch1);
+                this,
+                &ch1);
     }
 }
 
@@ -101,7 +103,7 @@ bool Rp2040ChibiOS::UARTDriver::is_blocking_writes() {
 }
 int8_t Rp2040ChibiOS::UARTDriver::driverSerialNr() {
     WITH_SEMAPHORE(_uartMutex);
-    return _serial_num; 
+    return _serial_num;
 }
 
 void Rp2040ChibiOS::UARTDriver::end() {
@@ -169,10 +171,10 @@ bool Rp2040ChibiOS::UARTDriver::tx_pending() {
         // the thread FIFO is locked.
         return true;
     }
-    return txFIFO.available() > 0; 
+    return txFIFO.available() > 0;
 }
 
-uint32_t Rp2040ChibiOS::UARTDriver::available() { 
+uint32_t Rp2040ChibiOS::UARTDriver::available() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_rxUartMutex);
@@ -180,7 +182,7 @@ uint32_t Rp2040ChibiOS::UARTDriver::available() {
     return rxFIFO.available();
 }
 
-uint32_t Rp2040ChibiOS::UARTDriver::txspace() { 
+uint32_t Rp2040ChibiOS::UARTDriver::txspace() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_txUartMutex);
@@ -188,12 +190,12 @@ uint32_t Rp2040ChibiOS::UARTDriver::txspace() {
     return txFIFO.space();
 }
 
-bool Rp2040ChibiOS::UARTDriver::read(uint8_t &b) { 
+bool Rp2040ChibiOS::UARTDriver::read(uint8_t &b) {
     if (!is_initialized()) return false;
 
     WITH_SEMAPHORE(_rxUartMutex);
 
-    return !rxFIFO.read_byte(&b);
+    return rxFIFO.read_byte(&b);
 }
 
 ssize_t Rp2040ChibiOS::UARTDriver::read(uint8_t *buffer, uint16_t count)
@@ -213,7 +215,7 @@ bool Rp2040ChibiOS::UARTDriver::discard_input() {
     WITH_SEMAPHORE(_rxUartMutex);
 
     rxFIFO.clear();
-    return true; 
+    return true;
 }
 
 void Rp2040ChibiOS::UARTDriver::clearTxFIFO() {
@@ -226,7 +228,7 @@ void Rp2040ChibiOS::UARTDriver::clearTxFIFO() {
     txFIFO.clear();
 }
 
-size_t Rp2040ChibiOS::UARTDriver::write(uint8_t c) { 
+size_t Rp2040ChibiOS::UARTDriver::write(uint8_t c) {
     _txUartMutex.take_blocking();
     if (!is_initialized()) {
         _txUartMutex.give();

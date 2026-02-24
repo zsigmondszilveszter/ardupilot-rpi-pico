@@ -27,8 +27,6 @@ def _load_dynamic_env_data(bld):
         if not d in idirs2:
             idirs2.append(d)
     _dynamic_env_data['include_dirs'] = idirs2
-    # Szilv: one more additional header location to include
-    _dynamic_env_data['include_dirs'].append(bld.srcnode.make_node(('modules/rp2040ChibiOS/')).abspath() + "/ext/pico-sdk/src/rp2_common/hardware_pio/include")
     
 
 @feature('ch_ap_library', 'ch_ap_program')
@@ -97,8 +95,6 @@ def configure(cfg):
     cfg.find_program("make", var="MAKE") # GNU make is required
     # ChibiOS config
     configureChibiOS(cfg)
-    # define boot_stage2 location
-    cfg.env.PICO_BOOT_STAGE2 = cfg.env.AP_HAL_ROOT+'/hwdef/rp2040-pico/bs2_default_padded_checksummed.S'
 
 
 def configureChibiOS(cfg): 
@@ -117,7 +113,6 @@ def configureChibiOS(cfg):
 
     env.CH_ROOT = srcpath('modules/rp2040ChibiOS')
     # env.CC_ROOT = srcpath('modules/CrashDebug/CrashCatcher')
-    env.CH_CONTRIB_ROOT = srcpath('modules/ChibiOS-Contrib')
     env.AP_HAL_ROOT = srcpath('libraries/AP_HAL_rp2040ChibiOS')
     env.BUILDDIR = bldpath('modules/rp2040ChibiOS')
     env.BUILDROOT = bldpath('')
@@ -126,7 +121,6 @@ def configureChibiOS(cfg):
 
     # relative paths to pass to make, relative to directory that make is run from
     env.CH_ROOT_REL = os.path.relpath(env.CH_ROOT, env.BUILDROOT)
-    env.CH_CONTRIB_ROOT_REL = os.path.relpath(env.CH_CONTRIB_ROOT, env.BUILDROOT)
     # env.CC_ROOT_REL = os.path.relpath(env.CC_ROOT, env.BUILDROOT)
     env.AP_HAL_REL = os.path.relpath(env.AP_HAL_ROOT, env.BUILDROOT)
     env.BUILDDIR_REL = os.path.relpath(env.BUILDDIR, env.BUILDROOT)
@@ -157,14 +151,14 @@ def build(bld):
     buildChibiOS(bld)
 
     bld.env.LDFLAGS += [
-        bld.env.PICO_BOOT_STAGE2
+            os.path.join(bld.env.BUILDDIR, 'obj', 'bs2_default_padded_checksummed.o')
     ]
 
 
 def buildChibiOS(bld):
     bld(
         # create the file modules/ChibiOS/include_dirs
-        rule="touch Makefile && BUILDDIR=${BUILDDIR_REL} CHIBIOS=${CH_ROOT_REL} CHIBIOS_CONTRIB=${CH_CONTRIB_ROOT_REL} " + 
+        rule="touch Makefile && BUILDDIR=${BUILDDIR_REL} CHIBIOS=${CH_ROOT_REL} " + 
             "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${MAKE} pass -f '${BOARD_MK}'",
         group='dynamic_sources',
         target=bld.bldnode.find_or_declare('modules/rp2040ChibiOS/include_dirs')
@@ -182,7 +176,7 @@ def buildChibiOS(bld):
     else:
         ch_task = bld(
             # build libch.a from ChibiOS sources and hwdef.h
-            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' CHIBIOS_CONTRIB=${CH_CONTRIB_ROOT_REL} " + 
+            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' " + 
                 "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${HAL_MAX_STACK_FRAME_SIZE} " +
                 "'${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
             group='dynamic_sources',

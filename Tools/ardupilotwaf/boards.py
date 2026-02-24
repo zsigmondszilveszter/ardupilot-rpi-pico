@@ -1014,7 +1014,6 @@ class rp2040ChibiOS(Board):
             '--specs=nosys.specs',
             '-L%s' % env.BUILDROOT,
             '-L%s' % cfg.srcnode.make_node('modules/rp2040ChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
-            '-L%s' % cfg.srcnode.make_node('libraries/AP_HAL_rp2040ChibiOS/hwdef/rp2040-pico/').abspath(),
             '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=RP2040_FLASH.ld,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
         ]
 

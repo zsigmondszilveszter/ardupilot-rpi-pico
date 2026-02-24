@@ -21,6 +21,7 @@
 extern const USBConfig usbcfg;
 extern SerialUSBConfig serusbcfg;
 extern SerialUSBDriver SDU1;
+extern volatile bool cdc_dtr_active;
 
 #endif  /* _USBCFG_H_ */
 

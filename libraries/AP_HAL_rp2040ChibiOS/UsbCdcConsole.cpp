@@ -2,7 +2,7 @@
 #include "UsbCdcConsole.h"
 #include "usbcfg.h"
 #include "Scheduler.h"
-#include "rp2040_util.h"
+#include "rp2xxx_util.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -27,10 +27,9 @@ void usb_initialise(void)
      * after a reset.
      */
     usbDisconnectBus(serusbcfg.usbp);
-    chThdSleep(chTimeUS2I(1000));
+    chThdSleep(chTimeUS2I(1500));
     usbStart(serusbcfg.usbp, &usbcfg);
     usbConnectBus(serusbcfg.usbp);
-
 }
 
 #ifndef USB_CDC_WRITE_THD_WA_SIZE
@@ -50,7 +49,8 @@ void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
                                               "UART_TX",
                                               USB_CDC_THREAD_PRIORITY,
                                               _usb_cdc_write_thread,
-                                              this, &ch1);
+                                              this,
+                                              &ch1);
         if (_usb_cdc_write_thread_ctx == nullptr) {
             AP_HAL::panic("Could not create USB CDC CONSOLE TX thread\n");
         }
@@ -64,7 +64,8 @@ void Rp2040ChibiOS::UsbCdcConsole::readThread() {
                                               "UART_RX",
                                               USB_CDC_THREAD_PRIORITY,
                                               _usb_cdc_read_thread,
-                                              this, &ch1);
+                                              this,
+                                              &ch1);
         if (_usb_cdc_read_thread_ctx == nullptr) {
             AP_HAL::panic("Could not create USB CDC CONSOLE RX thread\n");
         }
@@ -123,6 +124,7 @@ void Rp2040ChibiOS::UsbCdcConsole::end() {
 void Rp2040ChibiOS::UsbCdcConsole::flush(void) {
     if (!is_initialized()) return;
     if ((&SDU1)->state != SDU_READY) return;
+    if (!cdc_dtr_active) return;
 
     WITH_SEMAPHORE(_txUsbMutex);
 
@@ -137,7 +139,7 @@ void Rp2040ChibiOS::UsbCdcConsole::flush(void) {
         }
         txFIFO.advance(ret);
 
-        /* We wrote less than we asked for, stop */
+        /* We wrote less than we asked for, stop (no place in the buffer) */
         if ((unsigned)ret != vec[i].len) {
             break;
         }
@@ -176,11 +178,11 @@ bool Rp2040ChibiOS::UsbCdcConsole::tx_pending() {
         // the thread FIFO is locked.
         return true;
     }
-    return txFIFO.available() > 0; 
+    return txFIFO.available() > 0;
 }
 
 /* rp2040 implementations of Stream virtual methods */
-uint32_t Rp2040ChibiOS::UsbCdcConsole::available() { 
+uint32_t Rp2040ChibiOS::UsbCdcConsole::available() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_rxUsbMutex);
@@ -188,7 +190,7 @@ uint32_t Rp2040ChibiOS::UsbCdcConsole::available() {
     return rxFIFO.available();
 }
 
-uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() { 
+uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_txUsbMutex);
@@ -196,12 +198,12 @@ uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() {
     return txFIFO.space();
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::read(uint8_t &b) { 
+bool Rp2040ChibiOS::UsbCdcConsole::read(uint8_t &b) {
     if (!is_initialized()) return false;
 
     WITH_SEMAPHORE(_rxUsbMutex);
 
-    return !rxFIFO.read_byte(&b);
+    return rxFIFO.read_byte(&b);
 }
 
 ssize_t Rp2040ChibiOS::UsbCdcConsole::read(uint8_t *buffer, uint16_t count)
@@ -221,7 +223,7 @@ bool Rp2040ChibiOS::UsbCdcConsole::discard_input() {
     WITH_SEMAPHORE(_rxUsbMutex);
 
     rxFIFO.clear();
-    return true; 
+    return true;
 }
 
 void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
@@ -235,7 +237,7 @@ void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
 }
 
 /* rp2040 implementations of Print virtual methods */
-size_t Rp2040ChibiOS::UsbCdcConsole::write(uint8_t c) { 
+size_t Rp2040ChibiOS::UsbCdcConsole::write(uint8_t c) {
     _txUsbMutex.take_blocking();
     if (!is_initialized()) {
         _txUsbMutex.give();

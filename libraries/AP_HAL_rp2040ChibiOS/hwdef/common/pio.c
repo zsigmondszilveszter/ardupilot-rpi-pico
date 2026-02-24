@@ -24,8 +24,6 @@ static int _pio_find_offset_for_program(PIO pio, const pio_program_t *program) {
 }
 
 static bool _pio_can_add_program_at_offset(PIO pio, const pio_program_t *program, uint offset) {
-    // valid_params_if(PIO, offset < PIO_INSTRUCTION_COUNT);
-    // valid_params_if(PIO, offset + program->length <= PIO_INSTRUCTION_COUNT);
     if (program->origin >= 0 && (uint)program->origin != offset) return false;
     uint32_t used_mask = _used_instruction_space[pio_get_index(pio)];
     uint32_t program_mask = (1u << program->length) - 1;
@@ -50,7 +48,6 @@ static void _pio_add_program_at_offset(PIO pio, const pio_program_t *program, ui
 void pio_sm_set_consecutive_pindirs(PIO pio, uint sm, uint pin, uint count, bool is_out) {
     check_pio_param(pio);
     check_sm_param(sm);
-    // valid_params_if(PIO, pin < 32u);
     uint32_t pinctrl_saved = pio->sm[sm].pinctrl;
     uint pindir_val = is_out ? 0x1f : 0;
     while (count > 5) {
@@ -65,8 +62,6 @@ void pio_sm_set_consecutive_pindirs(PIO pio, uint sm, uint pin, uint count, bool
 }
 
 void pio_sm_init(PIO pio, uint sm, uint initial_pc, const pio_sm_config *config) {
-    // valid_params_if(PIO, initial_pc < PIO_INSTRUCTION_COUNT);
-    // Halt the machine, set some sensible defaults
     pio_sm_set_enabled(pio, sm, false);
 
     if (config) {
@@ -96,10 +91,9 @@ void pio_sm_init(PIO pio, uint sm, uint initial_pc, const pio_sm_config *config)
 uint pio_add_program(PIO pio, const pio_program_t *program) {
     osalSysLock();
     int offset = _pio_find_offset_for_program(pio, program);
-    if (offset < 0) {
-        // AP_HAL::panic("No PIO program space");
+    if (offset >= 0) {
+        _pio_add_program_at_offset(pio, program, (uint)offset);
     }
-    _pio_add_program_at_offset(pio, program, (uint)offset);
     osalSysUnlock();
     return (uint)offset;
 }
@@ -128,7 +122,10 @@ void rc_rx_uart_pio_program_init(PIO pio, uint sm, uint offset, uint pin, uint b
     // Deeper FIFO as we're not doing any TX
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
     // SM transmits 1 bit per 8 execution cycles.
-    float div = (float)clock_get_hz(clk_sys) / (8 * baud);
+#ifndef RP_CORE_CLK
+#error "RP_CORE_CLK must be defined (usually provided by ChibiOS HAL for RP2040)"
+#endif
+    float div = (float)RP_CORE_CLK / (8 * baud);
     sm_config_set_clkdiv(&c, div);
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);

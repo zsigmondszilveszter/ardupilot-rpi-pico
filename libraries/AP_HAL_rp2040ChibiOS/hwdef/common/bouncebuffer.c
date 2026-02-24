@@ -15,7 +15,7 @@
 /*
   bouncebuffer code for DMA safe memory operations
  */
-#include "rp2040_util.h"
+#include "rp2xxx_util.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -54,7 +54,7 @@ bool bouncebuffer_setup_read(struct bouncebuffer_t *bouncebuffer, uint8_t **buf,
         // nothing needs to be done
         return true;
     }
-    osalDbgAssert((bouncebuffer->busy == false), "bouncebuffer read");        
+    osalDbgAssert((bouncebuffer->busy == false), "bouncebuffer read");
     bouncebuffer->orig_buf = *buf;
     if (bouncebuffer->size < size) {
         if (bouncebuffer->size > 0) {
@@ -99,7 +99,7 @@ bool bouncebuffer_setup_write(struct bouncebuffer_t *bouncebuffer, const uint8_t
         // nothing needs to be done
         return true;
     }
-    osalDbgAssert((bouncebuffer->busy == false), "bouncebuffer write");        
+    osalDbgAssert((bouncebuffer->busy == false), "bouncebuffer write");
     if (bouncebuffer->size < size) {
         if (bouncebuffer->size > 0) {
             free(bouncebuffer->dma_buf);
@@ -126,7 +126,7 @@ bool bouncebuffer_setup_write(struct bouncebuffer_t *bouncebuffer, const uint8_t
 void bouncebuffer_finish_write(struct bouncebuffer_t *bouncebuffer, const uint8_t *buf)
 {
     if (bouncebuffer && buf == bouncebuffer->dma_buf) {
-        osalDbgAssert((bouncebuffer->busy == true), "bouncebuffer finish_wite");        
+        osalDbgAssert((bouncebuffer->busy == true), "bouncebuffer finish_wite");
         bouncebuffer->busy = false;
     }
 }

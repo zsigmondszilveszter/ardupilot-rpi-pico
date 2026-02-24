@@ -1,16 +1,19 @@
 #pragma once
 
-#include "hardware/address_mapped.h"
-#include "hardware/structs/pio.h"
-#include "hardware/regs/dreq.h"
-#include "hardware/pio_instructions.h"
 #include "hal.h"
+
+/*
+ * Disable Pico SDK-style parameter assertions for PIO (default was false).
+ * Must be defined before pio_sdk_compat.h is included so the compat header
+ * picks it up when it configures valid_params_if / invalid_params_if.
+ */
+#define PARAM_ASSERTIONS_ENABLED_PIO 0
+
+#include "rp_pio.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define PARAM_ASSERTIONS_ENABLED_PIO false
 
 
 static_assert(PIO_SM0_SHIFTCTRL_FJOIN_RX_LSB == PIO_SM0_SHIFTCTRL_FJOIN_TX_LSB + 1, "");
@@ -241,7 +244,7 @@ typedef struct pio_program {
     const uint16_t *instructions;
     uint8_t length;
     int8_t origin; // required instruction memory origin or -1
-} __packed pio_program_t;
+} __attribute__((packed)) pio_program_t;
 
 
 /*! \brief Immediately execute an instruction on a state machine
@@ -439,7 +442,7 @@ static inline uint pio_sm_get_rx_fifo_level(PIO pio, uint sm) {
     check_pio_param(pio);
     check_sm_param(sm);
     uint bitoffs = PIO_FLEVEL_RX0_LSB + sm * (PIO_FLEVEL_RX1_LSB - PIO_FLEVEL_RX0_LSB);
-    const uint32_t mask = PIO_FLEVEL_RX0_BITS >> PIO_FLEVEL_RX0_LSB;
+    const uint32_t mask = 0xf; // 4 bits for level
     return (pio->flevel >> bitoffs) & mask;
 }
 

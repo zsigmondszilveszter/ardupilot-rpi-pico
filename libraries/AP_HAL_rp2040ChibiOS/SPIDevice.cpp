@@ -24,7 +24,7 @@
 #include "Scheduler.h"
 #include "Semaphores.h"
 #include <stdio.h>
-#include "hwdef/common/rp2040_util.h"
+#include "hwdef/common/rp2xxx_util.h"
 
 #if HAL_USE_SPI == TRUE
 
@@ -172,7 +172,7 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
     }
     // bus.bouncebuffer_finish(send, recv, len);
 #endif
-    
+
     set_chip_select(old_cs_forced);
     return ret;
 }

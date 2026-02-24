@@ -13,7 +13,7 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "rp2040_util.h"
+#include "rp2xxx_util.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

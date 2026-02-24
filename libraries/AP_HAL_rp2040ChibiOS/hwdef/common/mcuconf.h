@@ -39,13 +39,25 @@
 #define RP_CORE1_STACK_END                  __c1_main_stack_end__
 
 /*
+ * Set the clock to 200MHz
+ *
+ * PLL_SYS configuration: 12 MHz XOSC * 100 / 6 / 1 = 200 MHz
+ * VCO = 1200 MHz (within 750-1600 MHz limit)
+ * POSTDIV1=6, POSTDIV2=1 -> 200 MHz output
+ */
+#define RP_PLL_SYS_REFDIV               1U
+#define RP_PLL_SYS_VCO_FREQ             1200000000U
+#define RP_PLL_SYS_POSTDIV1             6U
+#define RP_PLL_SYS_POSTDIV2             1U
+
+/*
  * IRQ system settings.
  */
 #define RP_IRQ_SYSTICK_PRIORITY             2
-#define RP_IRQ_TIMER_ALARM0_PRIORITY        2
-#define RP_IRQ_TIMER_ALARM1_PRIORITY        2
-#define RP_IRQ_TIMER_ALARM2_PRIORITY        2
-#define RP_IRQ_TIMER_ALARM3_PRIORITY        2
+#define RP_IRQ_TIMER0_ALARM0_PRIORITY       2
+#define RP_IRQ_TIMER0_ALARM1_PRIORITY       2
+#define RP_IRQ_TIMER0_ALARM2_PRIORITY       2
+#define RP_IRQ_TIMER0_ALARM3_PRIORITY       2
 #define RP_IRQ_UART0_PRIORITY               3
 #define RP_IRQ_UART1_PRIORITY               3
 #define RP_IRQ_SPI0_PRIORITY                2
@@ -90,17 +102,16 @@
 /*
  * USB driver system settings.
  */
-#define RP_USB_USE_USBD0                    TRUE
+#define RP_USB_USE_USB1                     TRUE
 #define RP_USB_FORCE_VBUS_DETECT            TRUE
 #define RP_USE_EXTERNAL_VBUS_DETECT         FALSE
-#define RP_USB_USE_SOF_INTR                 TRUE
 #define RP_USB_USE_ERROR_DATA_SEQ_INTR      TRUE
 
 /**
  * PWM driver system settings
  */
-#define RP_PWM_USE_PWM0                     TRUE
-#define RP_PWM_USE_PWM1                     TRUE
+//#define RP_PWM_USE_PWM0                     TRUE
+//#define RP_PWM_USE_PWM1                     TRUE
 
 
 #endif /* MCUCONF_H */

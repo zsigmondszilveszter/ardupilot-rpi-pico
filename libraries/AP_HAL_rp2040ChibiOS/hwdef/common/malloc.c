@@ -30,7 +30,7 @@
 #include <ch.h>
 #include <stdarg.h>
 #include <stdint.h>
-#include "rp2040_util.h"
+#include "rp2xxx_util.h"
 
 #ifdef HAL_CHIBIOS_ENABLE_MALLOC_GUARD
 #pragma GCC optimize("Og")
@@ -395,15 +395,35 @@ thread_t *thread_create_alloc(size_t size,
                               const char *name, tprio_t prio,
                               tfunc_t pf, void *arg, os_instance_t * os_inst)
 {
-    if (os_inst == NULL) os_inst = &ch0;
+    if (os_inst == NULL) {
+        os_inst = &ch0;
+    }
 
-    void *wbase, *wend;
-    wbase = chHeapAllocAligned(NULL, size, PORT_WORKING_AREA_ALIGN);
-    wend = (void *)((uint8_t *)wbase + size);
-    thread_descriptor_t td = THD_DESCRIPTOR_AFFINITY(name, (stkalign_t*)wbase, (stkalign_t*)wend, prio, pf, arg, os_inst); 
+    // Ensure 'size' accounts for the thread structure overhead!
+    // In modern ChibiOS, we use THD_WORKING_AREA_SIZE(n) to get the total bytes needed.
+    size_t total_size = THD_WORKING_AREA_SIZE(size);
+
+    void *wbase = chHeapAllocAligned(NULL, total_size, PORT_WORKING_AREA_ALIGN);
+    if (wbase == NULL) {
+        return NULL; // Always check your heap!
+    }
+
+    // Calculate the end pointer based on the allocated block
+    void *wend = (void *)((uint8_t *)wbase + total_size);
+
+    // Modern descriptor: No stkalign_t casts needed.
+    // Note: Ensure your version's THD_DESCRIPTOR_AFFINITY matches this parameter order.
+    thread_descriptor_t td = {
+        .name    = name,
+        .wbase   = wbase,
+        .wend    = wend,
+        .prio    = prio,
+        .funcp   = pf,
+        .arg     = arg,
+        .owner   = os_inst
+    };
+
     return chThdCreate(&td);
-
-    return NULL;
 }
 #endif
 
@@ -465,7 +485,7 @@ bool is_address_in_memory(void *addr)
   return the start of memory region that contains the address
  */
 void* get_addr_mem_region_start_addr(void *addr)
-{ 
+{
     uint8_t i;
     for (i=0; i<NUM_MEMORY_REGIONS; i++) {
         if (addr >= memory_regions[i].address &&
@@ -480,7 +500,7 @@ void* get_addr_mem_region_start_addr(void *addr)
   return the end of memory region that contains the address
  */
 void* get_addr_mem_region_end_addr(void *addr)
-{ 
+{
     uint8_t i;
     for (i=0; i<NUM_MEMORY_REGIONS; i++) {
         if (addr >= memory_regions[i].address &&

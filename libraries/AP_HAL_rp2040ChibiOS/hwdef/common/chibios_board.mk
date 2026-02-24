@@ -20,7 +20,7 @@ endif
 
 # Assembly specific options here (added to USE_OPT).
 ifeq ($(USE_ASOPT),)
-  USE_ASOPT = 
+  USE_ASOPT =
 endif
 
 # Assembly specific options here (added to USE_ASXOPT).
@@ -56,7 +56,7 @@ endif
 # If enabled, this option makes the build process faster by not compiling
 # modules not used in the current configuration.
 ifeq ($(USE_SMART_BUILD),)
-  USE_SMART_BUILD = no
+  USE_SMART_BUILD = yes
 endif
 
 include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
@@ -96,6 +96,7 @@ endif
 ##############################################################################
 # Project, sources and paths
 #
+CONFDIR := $(HWDEF)/common
 
 # Define project name here
 PROJECT = ch
@@ -103,36 +104,30 @@ PROJECT = ch
 # Target settings.
 MCU  = cortex-m0plus
 
-# Imported source files and 
-    bld.env.LIBPATH += ['modules/ChibiOS-Contrib/']paths
+# Imported source files and paths
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
 # Startup files.
 include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_rp2040.mk
 # HAL-OSAL files (optional).
-include $(CHIBIOS_CONTRIB)/os/hal/hal.mk
-include $(CHIBIOS_CONTRIB)/os/hal/ports/RP/RP2040/platform.mk
+include $(CHIBIOS)/os/hal/hal.mk
+include $(CHIBIOS)/os/hal/ports/RP/RP2040/platform.mk
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
-include $(CHIBIOS)/os/common/ports/ARMv6-M-RP2/compilers/GCC/mk/port.mk
+include $(CHIBIOS)/os/common/ports/ARMv6-M/compilers/GCC/mk/port_rp2.mk
 # Auto-build files in ./source recursively.
 include $(CHIBIOS)/tools/mk/autobuild.mk
 # Other files (optional).
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
-include $(CHIBIOS)/os/various/pico_bindings/pico-sdk.mk
 
 ifeq ($(USE_FATFS),yes)
 include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
 include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
 endif
 
-# add the PIO header location as well
-ALLINC  += $(PICOSDKROOT)/src/rp2_common/hardware_pio/include
-
-
 # Define linker script file here
-LDSCRIPT= RP2040_FLASH.ld
+LDSCRIPT= $(STARTUPLD)/RP2040_FLASH.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -140,13 +135,13 @@ LDSCRIPT= RP2040_FLASH.ld
 CSRC = $(sort $(ALLCSRC))
 
 CSRC += $(HWDEF)/common/hrt.c \
-	   $(HWDEF)/common/malloc.c \
+     $(HWDEF)/common/malloc.c \
      $(HWDEF)/common/board.c \
-     $(HWDEF)/common/rp2040_util.c \
+     $(HWDEF)/common/rp2xxx_util.c \
      $(HWDEF)/common/usbcfg.c \
      $(HWDEF)/common/bouncebuffer.c \
+     $(HWDEF)/common/stubs.c \
      $(HWDEF)/common/pio.c
-
 #	   $(TESTSRC) \
 #	   test.c
 ifneq ($(CRASHCATCHER),)
@@ -265,9 +260,24 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS = bs2_default_padded_checksummed.S
+ULIBS =
 
 #
-# End of user defines
+# End of user section
 ##############################################################################
+
+##############################################################################
+# Common rules
+#
+#
+# Common rules
+##############################################################################
+
+##############################################################################
+# Custom rules
+#
+#
+# Custom rules
+##############################################################################
+
 include $(HWDEF)/common/chibios_common.mk

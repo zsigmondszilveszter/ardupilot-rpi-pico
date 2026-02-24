@@ -26,7 +26,7 @@
 #define HAL_I2C_INTERNAL_MASK 0
 
 #include "Scheduler.h"
-#include "hwdef/common/rp2040_util.h"
+#include "hwdef/common/rp2xxx_util.h"
 #include <AP_InternalError/AP_InternalError.h>
 
 #include "ch.h"
