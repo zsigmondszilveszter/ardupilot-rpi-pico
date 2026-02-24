@@ -31,7 +31,6 @@
 #include <AP_HAL/AP_HAL.h>
 #if HAL_USE_SERIAL_USB == TRUE
 #include <AP_HAL_rp2040ChibiOS/hwdef/common/usbcfg.h>
-#include "UsbCdcConsole.h"
 #endif
 
 #ifndef HAL_BOOTLOADER_BUILD
@@ -89,15 +88,8 @@ int __wrap_asprintf(char **strp, const char *fmt, ...)
 
 int __wrap_vprintf(const char *fmt, va_list arg)
 {
-#ifdef HAL_STDOUT_SERIAL
-  return chvprintf((BaseSequentialStream*)&HAL_STDOUT_SERIAL, fmt, arg);
-#elif HAL_USE_SERIAL_USB == TRUE && !defined(HAL_BOOTLOADER_BUILD)
-  usb_initialise();
-  return chvprintf((BaseSequentialStream*)&SDU1, fmt, arg);
-#else
-  (void)arg;
-  return strlen(fmt);
-#endif
+    hal.console->vprintf(fmt, arg);
+    return strlen(fmt);
 }
 
 // hook to allow for printf() on systems without HAL_STDOUT_SERIAL

@@ -102,15 +102,14 @@
 #define HAL_MAG_PROBE_LIST PROBE_MPU9250_MAG; PROBE_MAG3110_MAG
 #define HAL_BARO_PROBE_LIST PROBE_BMP280_BARO
 
-#define HAL_HAVE_BOARD_VOLTAGE 1
-#define HAL_HAVE_SERVO_VOLTAGE 0
-#define HAL_HAVE_SAFETY_SWITCH 0
+#define HAL_HAVE_BOARD_VOLTAGE      1
+#define HAL_HAVE_SERVO_VOLTAGE      0
+#define HAL_HAVE_SAFETY_SWITCH      0
 
-#define HAL_DSHOT_ALARM 0
+#define HAL_DSHOT_ALARM             0
 
-
-#define HAL_OS_FATFS_IO 1
-#define HAL_OS_POSIX_IO 0
+#define HAL_OS_FATFS_IO             1
+#define HAL_OS_POSIX_IO             0
 
 
 // GPIO configuration

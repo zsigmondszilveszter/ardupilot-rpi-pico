@@ -3,7 +3,7 @@
 #include "utility/print_vprintf.h"
 #if defined(__APPLE__) && defined(__MACH__)
 #include <sys/time.h>
-#elif CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
+#elif CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS || CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
 #include "ch.h"
 #include "hal.h"
 #else
