@@ -14,11 +14,11 @@
  */
 #pragma once
 
-#include <AP_HAL/AP_HAL_Boards.h>
+#include "AP_Rally_config.h"
 
-#ifndef HAL_RALLY_ENABLED
-#define HAL_RALLY_ENABLED 1
-#endif
+#if HAL_RALLY_ENABLED
+
+#include <AP_HAL/AP_HAL_Boards.h>
 
 #include <AP_Common/AP_Common.h>
 #include <AP_Common/Location.h>
@@ -30,9 +30,16 @@ struct PACKED RallyLocation {
     int16_t alt;        //transit altitude (and loiter altitude) in meters (absolute);
     int16_t break_alt;  //when autolanding, break out of loiter at this alt (meters)
     uint16_t land_dir;   //when the time comes to auto-land, try to land in this direction (centidegrees)
-    uint8_t flags;      //bit 0 = seek favorable winds when choosing a landing poi
-                        //bit 1 = do auto land after arriving
-                        //all other bits are for future use.
+    union {
+        uint8_t flags; 
+        struct {
+            uint8_t favorable_winds : 1; // bit 0 = seek favorable winds when choosing a landing poi
+            uint8_t do_auto_land    : 1; // bit 1 = do auto land after arriving
+            uint8_t alt_frame_valid : 1; // bit 2 = true if following alt frame value should be used, else Location::AltFrame::ABOVE_HOME
+            uint8_t alt_frame       : 2; // Altitude frame following Location::AltFrame enum
+            uint8_t unused          : 3;
+        };
+    };
 };
 
 /// @class    AP_Rally
@@ -46,6 +53,7 @@ public:
 
     // data handling
     bool get_rally_point_with_index(uint8_t i, RallyLocation &ret) const;
+    bool get_rally_location_with_index(uint8_t i, Location &ret) const;
     bool set_rally_point_with_index(uint8_t i, const RallyLocation &rallyLoc);
     uint8_t get_rally_total() const {
         return (uint8_t)_rally_point_total_count;
@@ -98,3 +106,5 @@ private:
 namespace AP {
     AP_Rally *rally();
 };
+
+#endif  // HAL_RALLY_ENABLED

@@ -47,3 +47,6 @@
 	path = modules/ChibiOS-Contrib
 	url = https://github.com/ChibiOS/ChibiOS-Contrib.git
 	branch = chibios-21.11.x
+[submodule "modules/lwip"]
+	path = modules/lwip
+	url = https://github.com/ArduPilot/lwip.git

@@ -74,10 +74,14 @@ SECTIONS
     . = 0;
     _text = .;
 
-    startup : ALIGN(16) SUBALIGN(16)
+    /* Vector table: copied to RAM by startup script */
+    vectors : ALIGN(1024) SUBALIGN(16)
     {
+        __textvectors_base__ = LOADADDR(vectors);
+        __vectors_base__ = .;
         KEEP(*(.vectors))
-    } > default_flash
+        __vectors_end__ = .;
+    } > dataram AT > default_flash
 
     constructors : ALIGN(4) SUBALIGN(4)
     {
@@ -101,8 +105,8 @@ SECTIONS
         . = ALIGN(4);
         __ram3_init_text__ = LOADADDR(.fastramfunc);
         __ram3_init__ = .;
-        /* ChibiOS won't boot unless these are excluded */
-        EXCLUDE_FILE (*vectors.o *crt0_v7m.o *crt1.o *board.o)
+        /* ChibiOS won't boot unless some of these are excluded */
+        EXCLUDE_FILE (*vectors.o *crt0_v7m.o *crt1.o *board.o *chprintf.o)
         /* performance critical sections of ChibiOS */
         *libch.a:ch*.*(.text*)
         *libch.a:nvic.*(.text*)

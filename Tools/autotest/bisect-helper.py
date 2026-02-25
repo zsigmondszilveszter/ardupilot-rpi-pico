@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''A helper script for bisecting common problems when working with ArduPilot
 
@@ -133,7 +133,7 @@ class Bisect(object):
                     # select not available on Windows... probably...
                 time.sleep(0.1)
                 continue
-            if type(x) == bytes:
+            if isinstance(x, bytes):
                 x = x.decode('utf-8')
             self.program_output += x
             x = x.rstrip()
