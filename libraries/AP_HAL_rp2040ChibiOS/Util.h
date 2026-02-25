@@ -13,7 +13,6 @@ static const WDGConfig wdgcfg = { .rlr = RP2040_WATCHDOG_TIMEOUT };
 class Rp2040ChibiOS::Util : public AP_HAL::Util {
 public:
     Util();
-    bool run_debug_shell(AP_HAL::BetterStream *stream) override { return true; }
     uint32_t available_memory() override;
 
     // Special Allocation Routines
@@ -22,9 +21,9 @@ public:
 
 #ifdef ENABLE_HEAP
     // heap functions, note that a heap once alloc'd cannot be dealloc'd
-    virtual void *allocate_heap_memory(size_t size) override;
-    virtual void *heap_realloc(void *heap, void *ptr, size_t old_size, size_t new_size) override;
-    virtual void *std_realloc(void *ptr, size_t new_size) override;
+    virtual void *allocate_heap_memory(size_t size);
+    virtual void *heap_realloc(void *heap, void *ptr, size_t old_size, size_t new_size);
+    virtual void *std_realloc(void *ptr, uint32_t new_size) override;
 #endif // ENABLE_HEAP
 
     // return true if the reason for the reboot was a watchdog reset

@@ -72,10 +72,13 @@ void Rp2040ChibiOS::UsbCdcConsole::readThread() {
     }
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b) {
-    begin(b, RP2040_USB_CDC_RX_FIFO_SIZE, RP2040_USB_CDC_TX_FIFO_SIZE);
-}
-void Rp2040ChibiOS::UsbCdcConsole::begin(uint32_t b, uint16_t rxS, uint16_t txS) {
+void Rp2040ChibiOS::UsbCdcConsole::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
+    if (rxS == 0) {
+        rxS = RP2040_USB_CDC_RX_FIFO_SIZE;
+    }
+    if (txS == 0) {
+        txS = RP2040_USB_CDC_TX_FIFO_SIZE;
+    }
     WITH_SEMAPHORE(_usbMutex);
     initialized_flag = false;
 
@@ -109,7 +112,7 @@ bool Rp2040ChibiOS::UsbCdcConsole::is_blocking_writes() {
     return _blocking_writes;
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::end() {
+void Rp2040ChibiOS::UsbCdcConsole::_end() {
     WITH_SEMAPHORE(_usbMutex);
     WITH_SEMAPHORE(_txUsbMutex);
     WITH_SEMAPHORE(_rxUsbMutex);
@@ -121,7 +124,7 @@ void Rp2040ChibiOS::UsbCdcConsole::end() {
 }
 
 
-void Rp2040ChibiOS::UsbCdcConsole::flush(void) {
+void Rp2040ChibiOS::UsbCdcConsole::_flush(void) {
     if (!is_initialized()) return;
     if ((&SDU1)->state != SDU_READY) return;
     if (!cdc_dtr_active) return;
@@ -182,7 +185,7 @@ bool Rp2040ChibiOS::UsbCdcConsole::tx_pending() {
 }
 
 /* rp2040 implementations of Stream virtual methods */
-uint32_t Rp2040ChibiOS::UsbCdcConsole::available() {
+uint32_t Rp2040ChibiOS::UsbCdcConsole::_available() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_rxUsbMutex);
@@ -198,15 +201,7 @@ uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() {
     return txFIFO.space();
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::read(uint8_t &b) {
-    if (!is_initialized()) return false;
-
-    WITH_SEMAPHORE(_rxUsbMutex);
-
-    return rxFIFO.read_byte(&b);
-}
-
-ssize_t Rp2040ChibiOS::UsbCdcConsole::read(uint8_t *buffer, uint16_t count)
+ssize_t Rp2040ChibiOS::UsbCdcConsole::_read(uint8_t *buffer, uint16_t count)
 {
     if (!is_initialized()) return 0;
 
@@ -215,7 +210,7 @@ ssize_t Rp2040ChibiOS::UsbCdcConsole::read(uint8_t *buffer, uint16_t count)
     return rxFIFO.read(buffer, count);
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::discard_input() {
+bool Rp2040ChibiOS::UsbCdcConsole::_discard_input() {
     if (!is_initialized()) {
         return true;
     }
@@ -237,47 +232,27 @@ void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
 }
 
 /* rp2040 implementations of Print virtual methods */
-size_t Rp2040ChibiOS::UsbCdcConsole::write(uint8_t c) {
-    _txUsbMutex.take_blocking();
-    if (!is_initialized()) {
-        _txUsbMutex.give();
-        return 0;
-    }
-
-    while (txFIFO.space() == 0) {
-        if (!is_blocking_writes()) {
-            _txUsbMutex.give();
-            return 0;
-        }
-        // release the semaphore while sleeping
-        _txUsbMutex.give();
-        hal.scheduler->delay(1);
-        _txUsbMutex.take_blocking();
-    }
-    size_t ret = txFIFO.write(&c, 1);
-    _txUsbMutex.give();
-    return ret;
-}
-
-size_t Rp2040ChibiOS::UsbCdcConsole::write(const uint8_t *buffer, size_t size) {
-    if (!is_initialized()) {
-		return 0;
-	}
+size_t Rp2040ChibiOS::UsbCdcConsole::_write(const uint8_t *buffer, size_t size) {
+    if (!is_initialized()) return 0;
 
     if (is_blocking_writes()) {
-        // use the per-byte delay loop in write() above for blocking writes
         size_t ret = 0;
-        while (size--) {
-            if (write(*buffer++) != 1) break;
+        while (ret < size) {
+            _txUsbMutex.take_blocking();
+            while (txFIFO.space() == 0) {
+                _txUsbMutex.give();
+                hal.scheduler->delay(1);
+                _txUsbMutex.take_blocking();
+            }
+            txFIFO.write(buffer + ret, 1);
+            _txUsbMutex.give();
             ret++;
         }
         return ret;
     }
 
     WITH_SEMAPHORE(_txUsbMutex);
-
-    size_t ret = txFIFO.write(buffer, size);
-    return ret;
+    return txFIFO.write(buffer, size);
 }
 
 void Rp2040ChibiOS::UsbCdcConsole::_usb_cdc_write_thread(void *arg)

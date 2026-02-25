@@ -64,7 +64,7 @@ void * Util::allocate_heap_memory(size_t size)
 /*
   realloc implementation thanks to wolfssl, used by AP_Scripting
  */
-void * Util::std_realloc(void *addr, size_t size)
+void * Util::std_realloc(void *addr, uint32_t size)
 {
     if (size == 0) {
        free(addr);

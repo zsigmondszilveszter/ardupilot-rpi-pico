@@ -12,6 +12,7 @@ namespace Rp2040ChibiOS {
     class RCInput;
     class RCOutput;
     class Scheduler;
+    class BinarySemaphore;
     class Semaphore;
     class SPIDevice;
     // class SPIDeviceDriver;

@@ -48,8 +48,15 @@ void *realloc(void* ptr, size_t size) __attribute__((deprecated));
 extern int (*vprintf_console_hook)(const char *fmt, va_list arg);
 void malloc_check(const void *ptr);
 
-#define L_tmpnam 32
-
 #ifdef __cplusplus
 }
 #endif
+
+/*
+ * Pull in the real newlib stdio.h for all standard types (FILE, fpos_t, ...)
+ * and remaining declarations that <cstdio> needs via "using ::".
+ * Our custom declarations above take precedence; #include_next continues
+ * the search from the directory after this file so it finds the real one.
+ * L_tmpnam is defined there too, so the explicit define is not needed.
+ */
+#include_next <stdio.h>

@@ -6,6 +6,21 @@
 #include <AP_HAL/Semaphores.h>
 #include "AP_HAL_rp2040ChibiOS_Namespace.h"
 
+class Rp2040ChibiOS::BinarySemaphore : public AP_HAL::BinarySemaphore {
+public:
+    BinarySemaphore(bool initial_state=false);
+
+    CLASS_NO_COPY(BinarySemaphore);
+
+    bool wait(uint32_t timeout_us) override;
+    bool wait_blocking(void) override;
+    void signal(void) override;
+    void signal_ISR(void) override;
+
+protected:
+    uint32_t _lock[5];
+};
+
 class Rp2040ChibiOS::Semaphore : public AP_HAL::Semaphore {
 public:
     Semaphore();

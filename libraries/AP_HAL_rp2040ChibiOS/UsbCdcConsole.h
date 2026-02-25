@@ -34,31 +34,29 @@ public:
     void writeThread(void);
     void readThread(void);
 
-    /* rp2040 implementations of USB CDC Serial Console virtual methods */
-    void begin(uint32_t b) override;
-    void begin(uint32_t b, uint16_t rxS, uint16_t txS) override;
-    void end() override;
-    void flush() override;
+    /* rp2040 implementations of UARTDriver virtual methods */
     bool is_initialized() override;
-    void set_blocking_writes(bool blocking) override;
+    void set_blocking_writes(bool blocking);
     virtual bool is_blocking_writes();
     bool tx_pending() override;
 
-    /* rp2040 implementations of Stream virtual methods */
-    uint32_t available() override;
+    /* rp2040 implementations of BetterStream virtual methods */
     uint32_t txspace() override;
-    bool read(uint8_t &b) override;
-    ssize_t read(uint8_t *buffer, uint16_t count) override;
-    bool discard_input() override;
-
-    /* rp2040 implementations of Print virtual methods */
-    size_t write(uint8_t c) override;
-    size_t write(const uint8_t *buffer, size_t size) override;
 
     virtual void clearTxFIFO();
     virtual void async_read();
 
 protected:
+    /* backend implementations called by AP_HAL::UARTDriver base class */
+    void _begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace) override;
+    void _end() override;
+    void _flush() override;
+    uint32_t _available() override;
+    bool _discard_input() override;
+    size_t _write(const uint8_t *buffer, size_t size) override;
+    ssize_t _read(uint8_t *buffer, uint16_t count) override;
+
+
     bool initialized_flag = false;
     bool _blocking_writes;
 

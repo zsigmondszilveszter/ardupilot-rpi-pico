@@ -16,6 +16,7 @@
 // allow for static semaphores
 #include <AP_HAL_rp2040ChibiOS/Semaphores.h>
 #define HAL_Semaphore Rp2040ChibiOS::Semaphore
+#define HAL_BinarySemaphore Rp2040ChibiOS::BinarySemaphore
 #endif
 
 // Scheduler
@@ -108,12 +109,16 @@
 
 #define HAL_DSHOT_ALARM             0
 
-#define HAL_OS_FATFS_IO             1
+#define HAL_OS_FATFS_IO             0
 #define HAL_OS_POSIX_IO             0
 
+#define AP_SCRIPTING_ENABLED 0
+
+#ifndef HAVE_FILESYSTEM_SUPPORT
+#define HAVE_FILESYSTEM_SUPPORT     0
+#endif
 
 // GPIO configuration
-
 #define HAL_GPIO_PINS { \
 {  25,                          true,   0, 25U },  /* LED_GREEN OUTPUT */ \
 {  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
