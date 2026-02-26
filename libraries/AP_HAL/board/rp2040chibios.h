@@ -28,27 +28,27 @@
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2040_WATCHDOG_ENABLED
 
 // I2C
-#define RP2040_I2C0_SDA_GPIO_PIN 20
-#define RP2040_I2C0_SCL_GPIO_PIN 21
-#define RP2040_I2C1_SDA_GPIO_PIN 10
-#define RP2040_I2C1_SCL_GPIO_PIN 11
+#define RP2040_I2C0_SDA_GPIO_PIN        20U
+#define RP2040_I2C0_SCL_GPIO_PIN        21U
+#define RP2040_I2C1_SDA_GPIO_PIN        10U
+#define RP2040_I2C1_SCL_GPIO_PIN        11U
 
 // SPI
-#define RP2040_SPI0_MISO_GPIO_PIN 16
-#define RP2040_SPI0_MOSI_GPIO_PIN 19
-#define RP2040_SPI0_SCK_GPIO_PIN  18
-#define RP2040_SPI1_MISO_GPIO_PIN 12
-#define RP2040_SPI1_MOSI_GPIO_PIN 15
-#define RP2040_SPI1_SCK_GPIO_PIN  14
-#define HAL_DEFAULT_INS_FAST_SAMPLE 0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate
-#define RP2040_SPI_CS_FOR_MPU9250 13
-#define RP2040_SPI_CS_FOR_MPU6500 8
+#define RP2040_SPI0_MISO_GPIO_PIN       16U
+#define RP2040_SPI0_MOSI_GPIO_PIN       19U
+#define RP2040_SPI0_SCK_GPIO_PIN        18U
+#define RP2040_SPI1_MISO_GPIO_PIN       12U
+#define RP2040_SPI1_MOSI_GPIO_PIN       15U
+#define RP2040_SPI1_SCK_GPIO_PIN        14U
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate
+#define RP2040_SPI_CS_FOR_MPU9250       13U
+#define RP2040_SPI_CS_FOR_MPU6500       8U
 
 // UART
-#define RP2040_UART0_TX_GPIO_PIN 0U
-#define RP2040_UART0_RX_GPIO_PIN 1U
-#define RP2040_UART1_TX_GPIO_PIN 4U
-#define RP2040_UART1_RX_GPIO_PIN 5U
+#define RP2040_UART0_TX_GPIO_PIN        0U
+#define RP2040_UART0_RX_GPIO_PIN        1U
+#define RP2040_UART1_TX_GPIO_PIN        4U
+#define RP2040_UART1_RX_GPIO_PIN        5U
 // default UART FIFO sizes
 #define RP2040_UART_TX_FIFO_SIZE 128
 #define RP2040_UART_RX_FIFO_SIZE 128
@@ -57,15 +57,24 @@
 #define RP2040_USB_CDC_RX_FIFO_SIZE 512 + 256
 
 // RC IN
-#define RP2040_RC_IBUS_RX_PIN 7U
-#define RP2040_RC_SBUS_RX_PIN 8U
+#define RP2040_RC_RX_PIN                7U
+#define RP2040_RC_PROTOCOL              IBUS
 
 // RC out
 #define RP2040_NR_PWM_PERIPH_ENABLED 2
-#define RP2040_RC_OUT0 20U
-#define RP2040_RC_OUT1 21U
-#define RP2040_RC_OUT2 22U
-#define RP2040_RC_OUT3 26U
+#define RP2040_RC_OUT0                  20U
+#define RP2040_RC_OUT1                  21U
+#define RP2040_RC_OUT2                  22U
+#define RP2040_RC_OUT3                  26U
+
+// GPIO configuration
+#define HAL_GPIO_PINS { \
+{  25,                          true,   0, 25U },  /* LED_GREEN OUTPUT */ \
+{  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
+{  9,                           true,   0, 9U  },  /* LED_RED2 OUTPUT */ \
+{  RP2040_SPI_CS_FOR_MPU9250,   true,   0, RP2040_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
+{  RP2040_SPI_CS_FOR_MPU6500,   true,   0, RP2040_SPI_CS_FOR_MPU6500 }    /* SPI CS for mpu6500 */ \
+}
 
 //
 #define HAL_BOARD_NAME "Raspberry Pi Pico"
@@ -117,16 +126,6 @@
 #ifndef HAVE_FILESYSTEM_SUPPORT
 #define HAVE_FILESYSTEM_SUPPORT     0
 #endif
-
-// GPIO configuration
-#define HAL_GPIO_PINS { \
-{  25,                          true,   0, 25U },  /* LED_GREEN OUTPUT */ \
-{  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
-{  9,                           true,   0, 9U  },  /* LED_RED2 OUTPUT */ \
-{  RP2040_SPI_CS_FOR_MPU9250,   true,   0, RP2040_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
-{  RP2040_SPI_CS_FOR_MPU6500,   true,   0, RP2040_SPI_CS_FOR_MPU6500 }    /* SPI CS for mpu6500 */ \
-}
-
 
 // I2C configuration
 #define HAL_I2C0_CONFIG { &I2CD0, 0, 0, 0, RP2040_I2C0_SCL_GPIO_PIN, RP2040_I2C0_SDA_GPIO_PIN }

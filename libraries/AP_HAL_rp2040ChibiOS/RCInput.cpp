@@ -36,24 +36,18 @@ using namespace Rp2040ChibiOS;
 extern const AP_HAL::HAL& hal;
 
 // constructor
-RCInput::RCInput(bool sbus, bool ibus) : AP_HAL::RCInput(), 
-    enable_sbus(sbus),
-    enable_ibus(ibus)
+RCInput::RCInput(RCProtocol protocol) : AP_HAL::RCInput(),
+    _protocol(protocol)
 {}
 
 void RCInput::init()
 {
     hal_lld_peripheral_reset(RESETS_ALLREG_PIO0);
-    hal_lld_peripheral_reset(RESETS_ALLREG_PIO1);
     hal_lld_peripheral_unreset(RESETS_ALLREG_PIO0);
-    hal_lld_peripheral_unreset(RESETS_ALLREG_PIO1);
 
-    if (enable_ibus) {
+    if (_protocol == RCProtocol::IBUS) {
         open_ibus();
-    }
-    // don't open sbus if both ibus and sbus are enabled and their input pins are the same
-    // may later I add some logic to detect protocoll
-    if ((RP2040_RC_SBUS_RX_PIN != RP2040_RC_IBUS_RX_PIN || !enable_ibus ) && enable_sbus) {
+    } else if (_protocol == RCProtocol::SBUS) {
         open_sbus();
     }
     
@@ -67,20 +61,18 @@ void RCInput::init()
 void RCInput::open_sbus()
 {
     WITH_SEMAPHORE(rcin_mutex);
-    // Set up the state machine we're going to use to receive them.
-    uint32_t offset = pio_add_program(sbus_pio, &rc_rx_sbus_uart_pio_program);
-    rc_rx_uart_pio_program_init(sbus_pio, sbus_sm, offset, RP2040_RC_SBUS_RX_PIN, SBUS_BAUD, SBUS);
+    uint32_t offset = pio_add_program(_pio, &rc_rx_sbus_uart_pio_program);
+    rc_rx_uart_pio_program_init(_pio, _sm, offset, RP2040_RC_RX_PIN, SBUS_BAUD, SBUS);
 }
 
 /*
-  open am IBUS UART
+  open an IBUS UART
  */
 void RCInput::open_ibus()
 {
     WITH_SEMAPHORE(rcin_mutex);
-    // Set up the state machine we're going to use to receive them.
-    uint32_t offset = pio_add_program(ibus_pio, &rc_rx_ibus_uart_pio_program);
-    rc_rx_uart_pio_program_init(ibus_pio, ibus_sm, offset, RP2040_RC_IBUS_RX_PIN, IBUS_BAUD, IBUS);
+    uint32_t offset = pio_add_program(_pio, &rc_rx_ibus_uart_pio_program);
+    rc_rx_uart_pio_program_init(_pio, _sm, offset, RP2040_RC_RX_PIN, IBUS_BAUD, IBUS);
 }
 
 /*
@@ -149,26 +141,14 @@ void RCInput::_timer_tick(void)
         return;
     }
 
-    // S.BUS
-    if (enable_sbus) {
+    if (_protocol != RCProtocol::NONE) {
+        const uint32_t baud = (_protocol == RCProtocol::SBUS) ? SBUS_BAUD : IBUS_BAUD;
         WITH_SEMAPHORE(rcin_mutex);
-        uint32_t nr_of_bytes = pio_sm_get_rx_fifo_level(sbus_pio, sbus_sm);
-        if (nr_of_bytes > 0 ) {
+        uint32_t nr_of_bytes = pio_sm_get_rx_fifo_level(_pio, _sm);
+        if (nr_of_bytes > 0) {
             for (uint8_t i=0; i<nr_of_bytes; i++) {
-                uint8_t b = rc_rx_uart_pio_program_getc(sbus_pio, sbus_sm);
-                AP::RC().process_byte(b, SBUS_BAUD);
-            }
-        }
-    }
-
-    // I.BUS
-    if (enable_ibus) {
-        WITH_SEMAPHORE(rcin_mutex);
-        uint32_t nr_of_bytes = pio_sm_get_rx_fifo_level(ibus_pio, ibus_sm);
-        if (nr_of_bytes > 0 ) {
-            for (uint8_t i=0; i<nr_of_bytes; i++) {
-                uint8_t b = rc_rx_uart_pio_program_getc(ibus_pio, ibus_sm);
-                AP::RC().process_byte(b, IBUS_BAUD);
+                uint8_t b = rc_rx_uart_pio_program_getc(_pio, _sm);
+                AP::RC().process_byte(b, baud);
             }
         }
     }

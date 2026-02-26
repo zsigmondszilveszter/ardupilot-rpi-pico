@@ -35,7 +35,13 @@ namespace Rp2040ChibiOS {
 
 class RCInput : public AP_HAL::RCInput {
 public:
-    RCInput(bool sbus, bool ibus);
+    enum class RCProtocol {
+        NONE,
+        SBUS,
+        IBUS,
+    };
+
+    RCInput(RCProtocol protocol);
     void init() override;
     bool new_input() override;
     uint8_t num_channels() override;
@@ -70,13 +76,10 @@ protected:
     int16_t _rx_link_quality = -1;
     uint32_t _rcin_timestamp_last_signal;
 
-    PIO ibus_pio = pio0;
-    uint ibus_sm = 0;
-    PIO sbus_pio = pio0;
-    uint sbus_sm = 1;
+    PIO _pio = pio0;
+    uint _sm = 0;
 
-    bool enable_sbus = false;
-    bool enable_ibus = false;
+    RCProtocol _protocol;
     uint32_t last_frame_ms;
 
     bool _init;

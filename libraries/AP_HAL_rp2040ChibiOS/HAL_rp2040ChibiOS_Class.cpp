@@ -28,7 +28,7 @@ static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
 // static Storage storageDriver;
 static GPIO gpioDriver;
-static RCInput rcinDriver{false, true}; // sbus, ibus
+static RCInput rcinDriver{RCInput::RCProtocol::RP2040_RC_PROTOCOL};
 // static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
 static Rp2040ChibiOS::Util utilInstance;
