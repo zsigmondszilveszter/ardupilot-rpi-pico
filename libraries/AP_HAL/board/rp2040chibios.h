@@ -28,8 +28,6 @@
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2040_WATCHDOG_ENABLED
 
 // I2C
-#define RP2040_I2C0_SDA_GPIO_PIN        20U
-#define RP2040_I2C0_SCL_GPIO_PIN        21U
 #define RP2040_I2C1_SDA_GPIO_PIN        10U
 #define RP2040_I2C1_SCL_GPIO_PIN        11U
 
@@ -40,7 +38,7 @@
 #define RP2040_SPI1_MISO_GPIO_PIN       12U
 #define RP2040_SPI1_MOSI_GPIO_PIN       15U
 #define RP2040_SPI1_SCK_GPIO_PIN        14U
-#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
 #define RP2040_SPI_CS_FOR_MPU9250       13U
 #define RP2040_SPI_CS_FOR_MPU6500       8U
 
@@ -61,7 +59,8 @@
 #define RP2040_RC_PROTOCOL              IBUS
 
 // RC out
-#define RP2040_NR_PWM_PERIPH_ENABLED 2
+// 3 non-contiguous PWM slices: PWMD2 (GPIO 20/21), PWMD3 (GPIO 22), PWMD5 (GPIO 26)
+#define RP2040_NR_PWM_PERIPH_ENABLED 3
 #define RP2040_RC_OUT0                  20U
 #define RP2040_RC_OUT1                  21U
 #define RP2040_RC_OUT2                  22U
@@ -128,10 +127,9 @@
 #endif
 
 // I2C configuration
-#define HAL_I2C0_CONFIG { &I2CD0, 0, 0, 0, RP2040_I2C0_SCL_GPIO_PIN, RP2040_I2C0_SDA_GPIO_PIN }
 #define HAL_I2C1_CONFIG { &I2CD1, 0, 0, 0, RP2040_I2C1_SCL_GPIO_PIN, RP2040_I2C1_SDA_GPIO_PIN }
 
-#define HAL_I2C_DEVICE_LIST HAL_I2C0_CONFIG,HAL_I2C1_CONFIG
+#define HAL_I2C_DEVICE_LIST HAL_I2C1_CONFIG
 
 
 // SPI configuration

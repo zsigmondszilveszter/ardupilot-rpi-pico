@@ -29,7 +29,7 @@ static SPIDeviceManager spiDeviceManager;
 // static Storage storageDriver;
 static GPIO gpioDriver;
 static RCInput rcinDriver{RCInput::RCProtocol::RP2040_RC_PROTOCOL};
-// static RCOutput rcoutDriver;
+ static RCOutput rcoutDriver;
 static Rp2040ChibiOS::Scheduler schedulerInstance;
 static Rp2040ChibiOS::Util utilInstance;
 // static OpticalFlow opticalFlowDriver;
@@ -55,7 +55,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         &console_over_USB,
         &gpioDriver,
         &rcinDriver,
-        nullptr,// &rcoutDriver,
+        &rcoutDriver,
         &schedulerInstance,
         &utilInstance,
         nullptr,// &opticalFlowDriver,
@@ -109,6 +109,7 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      * up to the programmer to do this in the correct order.
      * Scheduler should likely come first. */
     hal.scheduler->init();
+    hal.rcout->init();
 
      /*
       run setup() at low priority to ensure CLI doesn't hang the
