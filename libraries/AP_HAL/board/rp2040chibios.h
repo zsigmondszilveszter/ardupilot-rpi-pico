@@ -8,9 +8,9 @@
 #define HAL_NUM_CAN_IFACES 0
 #endif
 
-#define HAL_BOARD_LOG_DIRECTORY				"/SDCARD/APM/LOGS"
-#define HAL_BOARD_STORAGE_DIRECTORY			"/SDCARD/APM/STORAGE"
-#define HAL_BOARD_TERRAIN_DIRECTORY			"/SDCARD/APM/TERRAIN"
+#define HAL_BOARD_LOG_DIRECTORY				"/APM/LOGS"
+#define HAL_BOARD_STORAGE_DIRECTORY			"/APM/STORAGE"
+#define HAL_BOARD_TERRAIN_DIRECTORY			"/APM/TERRAIN"
 
 #ifdef __cplusplus
 // allow for static semaphores
@@ -41,6 +41,7 @@
 #define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
 #define RP2040_SPI_CS_FOR_MPU9250       13U
 #define RP2040_SPI_CS_FOR_MPU6500       8U
+#define RP2040_SPI_CS_FOR_SDCARD        17U
 
 // UART
 #define RP2040_UART0_TX_GPIO_PIN        0U
@@ -72,7 +73,8 @@
 {  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
 {  9,                           true,   0, 9U  },  /* LED_RED2 OUTPUT */ \
 {  RP2040_SPI_CS_FOR_MPU9250,   true,   0, RP2040_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
-{  RP2040_SPI_CS_FOR_MPU6500,   true,   0, RP2040_SPI_CS_FOR_MPU6500 }    /* SPI CS for mpu6500 */ \
+{  RP2040_SPI_CS_FOR_MPU6500,   true,   0, RP2040_SPI_CS_FOR_MPU6500 },   /* SPI CS for mpu6500 */ \
+{  RP2040_SPI_CS_FOR_SDCARD,    true,   0, RP2040_SPI_CS_FOR_SDCARD  }    /* SPI CS for sdcard  */ \
 }
 
 //
@@ -117,13 +119,13 @@
 
 #define HAL_DSHOT_ALARM             0
 
-#define HAL_OS_FATFS_IO             0
+#define HAL_OS_FATFS_IO             1
 #define HAL_OS_POSIX_IO             0
 
 #define AP_SCRIPTING_ENABLED 0
 
 #ifndef HAVE_FILESYSTEM_SUPPORT
-#define HAVE_FILESYSTEM_SUPPORT     0
+#define HAVE_FILESYSTEM_SUPPORT     1
 #endif
 
 // I2C configuration
@@ -136,15 +138,20 @@
 #define HAL_SPI_BUS_LIST {&SPID0,0},{&SPID1,1}
 
 #define SPI_MHZ 1000000
+#define SPI_KHZ 1000
 #define SPI_BUS_0       0
 #define SPI_BUS_1       1
 // SPI device table
-#define HAL_SPI_DEVICE0  SPIDesc("mpu9250", SPI_BUS_1, 1, \
+#define HAL_SPI_DEVICE_MPU9250  SPIDesc("mpu9250", SPI_BUS_1, 1, \
     RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
     RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU9250, \
     0, 1*SPI_MHZ,  10*SPI_MHZ)
-#define HAL_SPI_DEVICE1  SPIDesc("mpu6500", SPI_BUS_1, 2, \
+#define HAL_SPI_DEVICE_MPU6500  SPIDesc("mpu6500", SPI_BUS_1, 2, \
     RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
     RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU6500, \
     0, 1*SPI_MHZ,  10*SPI_MHZ)
-#define HAL_SPI_DEVICE_LIST HAL_SPI_DEVICE0,HAL_SPI_DEVICE1
+#define HAL_SPI_DEVICE_SDCARD  SPIDesc("sdcard", SPI_BUS_0, 3, \
+    RP2040_SPI0_MISO_GPIO_PIN, RP2040_SPI0_MOSI_GPIO_PIN, \
+    RP2040_SPI0_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_SDCARD, \
+    0, 400*SPI_KHZ, 25*SPI_MHZ)
+#define HAL_SPI_DEVICE_LIST HAL_SPI_DEVICE_MPU9250,HAL_SPI_DEVICE_MPU6500,HAL_SPI_DEVICE_SDCARD

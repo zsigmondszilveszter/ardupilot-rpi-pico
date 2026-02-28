@@ -27,6 +27,9 @@
 #include "hwdef/common/rp2xxx_util.h"
 
 #include <AP_BoardConfig/AP_BoardConfig.h>
+#include <AP_Filesystem/AP_Filesystem.h>
+#include <AP_Logger/AP_Logger.h>
+#include "sdcard.h"
 
 using namespace Rp2040ChibiOS;
 
@@ -224,15 +227,15 @@ void Scheduler::reboot(bool hold_in_bootloader)
     // disable all interrupt sources
     port_disable();
 
-// #if HAL_LOGGING_ENABLED
-//     //stop logging
-//     if (AP_Logger::get_singleton()) {
-//         AP::logger().StopLogging();
-//     }
+#if HAL_LOGGING_ENABLED
+    //stop logging
+    if (AP_Logger::get_singleton()) {
+        AP::logger().StopLogging();
+    }
 
-//     // unmount filesystem, if active
-//     AP::FS().unmount();
-// #endif
+    // unmount filesystem, if active
+    AP::FS().unmount();
+#endif
 
     // disable all interrupt sources
     port_disable();
@@ -264,10 +267,10 @@ void Scheduler::_run_timers()
         _failsafe();
     }
 
-// #if HAL_USE_ADC == TRUE && !defined(HAL_DISABLE_ADC_DRIVER)
-//     // process analog input
-//     ((AnalogIn *)hal.analogin)->_timer_tick();
-// #endif
+#if HAL_USE_ADC == TRUE && !defined(HAL_DISABLE_ADC_DRIVER)
+    // process analog input
+    ((AnalogIn *)hal.analogin)->_timer_tick();
+#endif
 
     _in_timer_proc = false;
 }
@@ -376,9 +379,9 @@ void Scheduler::_monitor_thread(void *arg)
         sched->delay(100);
     }
     // bool using_watchdog = AP_BoardConfig::watchdog_enabled();
-// #if HAL_LOGGING_ENABLED
-//     uint8_t log_wd_counter = 0;
-// #endif
+#if HAL_LOGGING_ENABLED
+    uint8_t log_wd_counter = 0;
+#endif
 
     while (true) {
         sched->delay(100);
@@ -394,59 +397,59 @@ void Scheduler::_monitor_thread(void *arg)
         if (loop_delay >= 200) {
             // the main loop has been stuck for at least
             // 200ms. Starting logging the main loop state
-// #if HAL_LOGGING_ENABLED
-//             const AP_HAL::Util::PersistentData &pd = hal.util->persistent_data;
-//             if (AP_Logger::get_singleton()) {
-//                 const struct log_MON mon{
-//                     LOG_PACKET_HEADER_INIT(LOG_MON_MSG),
-//                     time_us               : AP_HAL::micros64(),
-//                     loop_delay            : loop_delay,
-//                     current_task          : pd.scheduler_task,
-//                     internal_error_mask   : pd.internal_errors,
-//                     internal_error_count  : pd.internal_error_count,
-//                     internal_error_line   : pd.internal_error_last_line,
-//                     mavmsg                : pd.last_mavlink_msgid,
-//                     mavcmd                : pd.last_mavlink_cmd,
-//                     semline               : pd.semaphore_line,
-//                     spicnt                : pd.spi_count,
-//                     i2ccnt                : pd.i2c_count
-//                 };
-//                 AP::logger().WriteCriticalBlock(&mon, sizeof(mon));
-//             }
-// #endif
+#if HAL_LOGGING_ENABLED
+            const AP_HAL::Util::PersistentData &pd = hal.util->persistent_data;
+            if (AP_Logger::get_singleton()) {
+                const struct log_MON mon{
+                    LOG_PACKET_HEADER_INIT(LOG_MON_MSG),
+                    time_us               : AP_HAL::micros64(),
+                    loop_delay            : loop_delay,
+                    current_task          : pd.scheduler_task,
+                    internal_error_mask   : pd.internal_errors,
+                    internal_error_count  : pd.internal_error_count,
+                    internal_error_line   : pd.internal_error_last_line,
+                    mavmsg                : pd.last_mavlink_msgid,
+                    mavcmd                : pd.last_mavlink_cmd,
+                    semline               : pd.semaphore_line,
+                    spicnt                : pd.spi_count,
+                    i2ccnt                : pd.i2c_count
+                };
+                AP::logger().WriteCriticalBlock(&mon, sizeof(mon));
+            }
+#endif
         }
         if (loop_delay >= 500 && !sched->in_expected_delay()) {
             // at 500ms we declare an internal error
             INTERNAL_ERROR(AP_InternalError::error_t::main_loop_stuck);
         }
 
-// #if HAL_LOGGING_ENABLED
-//     if (log_wd_counter++ == 10 && hal.util->was_watchdog_reset()) {
-//         log_wd_counter = 0;
-//         // log watchdog message once a second
-//         const AP_HAL::Util::PersistentData &pd = hal.util->last_persistent_data;
-//         struct log_WDOG wdog{
-//             LOG_PACKET_HEADER_INIT(LOG_WDOG_MSG),
-//             time_us                  : AP_HAL::micros64(),
-//             scheduler_task           : pd.scheduler_task,
-//             internal_errors          : pd.internal_errors,
-//             internal_error_count     : pd.internal_error_count,
-//             internal_error_last_line : pd.internal_error_last_line,
-//             last_mavlink_msgid       : pd.last_mavlink_msgid,
-//             last_mavlink_cmd         : pd.last_mavlink_cmd,
-//             semaphore_line           : pd.semaphore_line,
-//             fault_line               : pd.fault_line,
-//             fault_type               : pd.fault_type,
-//             fault_addr               : pd.fault_addr,
-//             fault_thd_prio           : pd.fault_thd_prio,
-//             fault_icsr               : pd.fault_icsr,
-//             fault_lr                 : pd.fault_lr
-//         };
-//         memcpy(wdog.thread_name4, pd.thread_name4, ARRAY_SIZE(wdog.thread_name4));
+#if HAL_LOGGING_ENABLED
+    if (log_wd_counter++ == 10 && hal.util->was_watchdog_reset()) {
+        log_wd_counter = 0;
+        // log watchdog message once a second
+        const AP_HAL::Util::PersistentData &pd = hal.util->last_persistent_data;
+        struct log_WDOG wdog{
+            LOG_PACKET_HEADER_INIT(LOG_WDOG_MSG),
+            time_us                  : AP_HAL::micros64(),
+            scheduler_task           : pd.scheduler_task,
+            internal_errors          : pd.internal_errors,
+            internal_error_count     : pd.internal_error_count,
+            internal_error_last_line : pd.internal_error_last_line,
+            last_mavlink_msgid       : pd.last_mavlink_msgid,
+            last_mavlink_cmd         : pd.last_mavlink_cmd,
+            semaphore_line           : pd.semaphore_line,
+            fault_line               : pd.fault_line,
+            fault_type               : pd.fault_type,
+            fault_addr               : pd.fault_addr,
+            fault_thd_prio           : pd.fault_thd_prio,
+            fault_icsr               : pd.fault_icsr,
+            fault_lr                 : pd.fault_lr
+        };
+        memcpy(wdog.thread_name4, pd.thread_name4, ARRAY_SIZE(wdog.thread_name4));
 
-//         AP::logger().WriteCriticalBlock(&wdog, sizeof(wdog));
-//     }
-// #endif // HAL_LOGGING_ENABLED
+        AP::logger().WriteCriticalBlock(&wdog, sizeof(wdog));
+    }
+#endif // HAL_LOGGING_ENABLED
 
 #ifndef IOMCU_FW
     // setup GPIO interrupt quotas
@@ -499,9 +502,9 @@ void Scheduler::_io_thread(void* arg)
     while (!sched->_hal_initialized) {
         sched->delay_microseconds(1000);
     }
-// #if HAL_LOGGING_ENABLED
-//     uint32_t last_sd_start_ms = AP_HAL::millis();
-// #endif
+#if HAL_LOGGING_ENABLED
+    uint32_t last_sd_start_ms = AP_HAL::millis();
+#endif
 #if CH_DBG_ENABLE_STACK_CHECK == TRUE
     uint32_t last_stack_check_ms = 0;
 #endif
@@ -512,20 +515,20 @@ void Scheduler::_io_thread(void* arg)
         // run registered IO processes
         sched->_run_io();
 
-// #if HAL_LOGGING_ENABLED || CH_DBG_ENABLE_STACK_CHECK == TRUE
-//         uint32_t now = AP_HAL::millis();
-// #endif
+#if HAL_LOGGING_ENABLED || CH_DBG_ENABLE_STACK_CHECK == TRUE
+        uint32_t now = AP_HAL::millis();
+#endif
 
-// #if HAL_LOGGING_ENABLED
-//         if (!hal.util->get_soft_armed()) {
-//             // if sdcard hasn't mounted then retry it every 3s in the IO
-//             // thread when disarmed
-//             if (now - last_sd_start_ms > 3000) {
-//                 last_sd_start_ms = now;
-//                 AP::FS().retry_mount();
-//             }
-//         }
-// #endif
+#if HAL_LOGGING_ENABLED
+        if (!hal.util->get_soft_armed()) {
+            // if sdcard hasn't mounted then retry it every 3s in the IO
+            // thread when disarmed
+            if (now - last_sd_start_ms > 3000) {
+                last_sd_start_ms = now;
+                AP::FS().retry_mount();
+            }
+        }
+#endif
 #if CH_DBG_ENABLE_STACK_CHECK == TRUE
         if (now - last_stack_check_ms > 1000) {
             last_stack_check_ms = now;
@@ -559,11 +562,11 @@ uint8_t Scheduler::calculate_thread_priority(priority_base base, int8_t priority
         { PRIORITY_I2C, APM_I2C_PRIORITY},
         // { PRIORITY_CAN, APM_CAN_PRIORITY},
         { PRIORITY_TIMER, APM_TIMER_PRIORITY},
-        // { PRIORITY_RCOUT, APM_RCOUT_PRIORITY},
-        // { PRIORITY_RCIN, APM_RCIN_PRIORITY},
+        { PRIORITY_RCOUT, APM_RCOUT_PRIORITY},
+        { PRIORITY_RCIN, APM_RCIN_PRIORITY},
         { PRIORITY_IO, APM_IO_PRIORITY},
         { PRIORITY_UART, APM_UART_PRIORITY},
-        // { PRIORITY_STORAGE, APM_STORAGE_PRIORITY},
+        { PRIORITY_STORAGE, APM_STORAGE_PRIORITY},
         { PRIORITY_SCRIPTING, APM_SCRIPTING_PRIORITY},
     };
     for (uint8_t i=0; i<ARRAY_SIZE(priority_map); i++) {

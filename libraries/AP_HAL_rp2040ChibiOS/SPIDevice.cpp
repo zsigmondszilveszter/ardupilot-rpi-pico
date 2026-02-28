@@ -81,7 +81,7 @@ SPIDevice::SPIDevice(SPIBus &_bus, SPIDesc &_device_desc)
     //       (unsigned)bus.bus, (unsigned)device_desc.device,
     //       (unsigned)frequency, (unsigned)device_desc.mode);
 
-    palSetLineMode(device_desc.miso_line, PAL_MODE_ALTERNATE_SPI | PAL_RP_PAD_SLEWFAST | PAL_RP_PAD_DRIVE4);
+    palSetLineMode(device_desc.miso_line, PAL_MODE_ALTERNATE_SPI | PAL_RP_PAD_PUE);
     palSetLineMode(device_desc.mosi_line, PAL_MODE_ALTERNATE_SPI | PAL_RP_PAD_SLEWFAST | PAL_RP_PAD_DRIVE4);
     palSetLineMode(device_desc.sck_line,  PAL_MODE_ALTERNATE_SPI | PAL_RP_PAD_SLEWFAST | PAL_RP_PAD_DRIVE4);
 
@@ -301,8 +301,18 @@ bool SPIDevice::acquire_bus(bool set, bool skip_cs)
         cs_forced = false;
     } else {
         spiAcquireBus(spi_devices[device_desc.bus].driver);              /* Acquire ownership of the bus.    */
-        bus.spicfg.SSPCR0 = SPI_SSPCR0_DSS_8BIT | SPI_SSPCR0_SCR(SCR_PRESCALER);
-        bus.spicfg.SSPCPSR = freq_flag;
+        // Split total divisor (freq_flag = RP_PERI_CLK / desired_freq) into
+        // CPSR (2-254, even, in SSPCPSR) and SCR (0-255, in SSPCR0 bits[15:8]).
+        // f_SPI = RP_PERI_CLK / (CPSR * (SCR+1))
+        // SSPCPSR is only 8 bits wide in hardware, so CPSR must be ≤254.
+        uint32_t divisor = MAX(2U, (uint32_t)freq_flag);
+        uint32_t cpsr = MAX(2U, (divisor + 255U) / 256U);  // ceil(divisor/256), min 2
+        if (cpsr & 1U) cpsr++;          // round up to nearest even number
+        if (cpsr > 254U) cpsr = 254U;
+        uint32_t scr = (divisor + cpsr - 1U) / cpsr - 1U;  // ceil(divisor/cpsr) - 1
+        if (scr > 255U) scr = 255U;
+        bus.spicfg.SSPCR0 = SPI_SSPCR0_DSS_8BIT | SPI_SSPCR0_SCR(scr);
+        bus.spicfg.SSPCPSR = cpsr;
         if (bus.spi_started) {
             spiStop(spi_devices[device_desc.bus].driver);
             bus.spi_started = false;

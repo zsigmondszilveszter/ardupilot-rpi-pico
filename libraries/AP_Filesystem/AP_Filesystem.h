@@ -34,7 +34,7 @@
 #define DT_LNK 10
 #endif
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
+#if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS || CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
 #if AP_FILESYSTEM_FATFS_ENABLED
 #include "AP_Filesystem_FATFS.h"
 #endif
@@ -60,10 +60,6 @@ struct dirent {
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_ESP32
 #include "AP_Filesystem_ESP32.h"
-#endif
-
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
-#include "AP_Filesystem_rp2040ChibiOS.h"
 #endif
 
 #include "AP_Filesystem_backend.h"
@@ -174,4 +170,3 @@ private:
 namespace AP {
     AP_Filesystem &FS();
 };
-

@@ -44,3 +44,11 @@ uint64_t rp2040_get_utc_usec(void);
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef __cplusplus
+// On RP2040 there is no data cache, so all memory is DMA-safe.
+static inline bool mem_is_dma_safe(const void *addr, uint32_t size, bool filesystem_op) {
+    (void)addr; (void)size; (void)filesystem_op;
+    return true;
+}
+#endif

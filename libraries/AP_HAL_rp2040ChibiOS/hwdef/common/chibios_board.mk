@@ -60,8 +60,18 @@ ifeq ($(USE_SMART_BUILD),)
 endif
 
 include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
+USE_FATFS = yes
+FATFS_FLAGS = -DUSE_POSIX
 ifeq ($(USE_FATFS),yes)
-include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
+# Use rp2040ChibiOS bindings but the extracted FatFS core from modules/ChibiOS
+CHIBIOS_FATFS_CORE = $(AP_HAL)/../../modules/ChibiOS
+FATFSSRC = $(CHIBIOS)/os/various/fatfs_bindings/fatfs_diskio.c \
+           $(CHIBIOS)/os/various/fatfs_bindings/fatfs_syscall.c \
+           $(CHIBIOS_FATFS_CORE)/ext/fatfs/source/ff.c \
+           $(CHIBIOS_FATFS_CORE)/ext/fatfs/source/ffunicode.c
+FATFSINC = $(CHIBIOS_FATFS_CORE)/ext/fatfs/source
+ALLCSRC += $(FATFSSRC)
+ALLINC  += $(FATFSINC)
 endif
 
 #
@@ -121,10 +131,6 @@ include $(CHIBIOS)/tools/mk/autobuild.mk
 # Other files (optional).
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 
-ifeq ($(USE_FATFS),yes)
-include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
-include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
-endif
 
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/RP2040_FLASH.ld

@@ -15,6 +15,7 @@
 #ifndef HAL_BOOTLOADER_BUILD
 #include <AP_Logger/AP_Logger.h>
 #endif
+#include <AP_Filesystem/AP_Filesystem.h>
 #include <AP_Vehicle/AP_Vehicle_Type.h>
 
 
@@ -117,21 +118,28 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      */
     hal_chibios_set_priority(APM_STARTUP_PRIORITY);
 
-    schedulerInstance.hal_initialized();
     hal.serial(0)->begin(115200);
+    schedulerInstance.hal_initialized();
+    
+    #if !defined(DISABLE_WATCHDOG)
+        // setup watchdog to reset if main loop stops
+        if (AP_BoardConfig::watchdog_enabled()) {
+            wdgStart(&WDGD1, &wdgcfg);
+        }
+    
+        if (hal.util->was_watchdog_reset()) {
+            INTERNAL_ERROR(AP_InternalError::error_t::watchdog_reset);
+        }
+    #endif // DISABLE_WATCHDOG
+    
+    #if defined(HAVE_FILESYSTEM_SUPPORT)
+        AP::FS().retry_mount();
+        schedulerInstance.watchdog_pat();
+    #endif
+    
+    hal.gpio->pinMode(25U, 1);
+    
     callbacks->setup();
-
-
-#if !defined(DISABLE_WATCHDOG)
-    // setup watchdog to reset if main loop stops
-    if (AP_BoardConfig::watchdog_enabled()) {
-        wdgStart(&WDGD1, &wdgcfg);
-    }
-
-    if (hal.util->was_watchdog_reset()) {
-        INTERNAL_ERROR(AP_InternalError::error_t::watchdog_reset);
-    }
-#endif // DISABLE_WATCHDOG
 
     schedulerInstance.watchdog_pat();
 
