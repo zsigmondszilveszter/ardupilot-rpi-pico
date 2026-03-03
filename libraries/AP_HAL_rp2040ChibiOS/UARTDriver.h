@@ -18,8 +18,6 @@ public:
 
     /* rp2040 implementations of UARTDriver virtual methods */
     bool is_initialized() override;
-    void set_blocking_writes(bool blocking);
-    virtual bool is_blocking_writes();
     bool tx_pending() override;
 
     /* rp2040 implementations of BetterStream virtual methods */
@@ -41,9 +39,9 @@ protected:
     ssize_t _read(uint8_t *buffer, uint16_t count) override;
 
     SIODriver * uart_driver_inst;
+    SIOConfig _uart_config;
     int8_t _serial_num = -1;
     bool initialized_flag = false;
-    bool _blocking_writes;
     uint tx_pin;
     uint rx_pin;
     // software FIFO buffers

@@ -4,6 +4,8 @@
 
 using namespace Rp2040ChibiOS;
 
+constexpr uint8_t RCOutput::NUM_CHANNELS;
+
 // 1 MHz timer clock → 1 µs per tick; period_us maps directly to ticks
 #define PWM_TIMER_FREQ   1000000UL
 // 400 Hz for digital servos/ESCs: 2.5 ms period

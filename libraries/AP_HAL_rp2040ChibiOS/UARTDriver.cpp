@@ -3,11 +3,11 @@
 #include "rp2xxx_util.h"
 
 #ifndef UART_WRITE_THD_WA_SIZE
-#define UART_WRITE_THD_WA_SIZE RP2040_UART_TX_FIFO_SIZE + 32
+#define UART_WRITE_THD_WA_SIZE 256
 #endif
 
 #ifndef UART_READ_THD_WA_SIZE
-#define UART_READ_THD_WA_SIZE RP2040_UART_RX_FIFO_SIZE + 32
+#define UART_READ_THD_WA_SIZE 256
 #endif
 
 extern const AP_HAL::HAL& hal;
@@ -79,30 +79,23 @@ void Rp2040ChibiOS::UARTDriver::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
         txFIFO.set_size(txS);
     }
 
-    SIOConfig uart_config = {
+    _uart_config = {
         .baud         = b,
         .UARTLCR_H    = UART_UARTLCR_H_WLEN_8BITS | UART_UARTLCR_H_FEN,
         .UARTCR       = 0U,
         .UARTIFLS     = UART_UARTIFLS_RXIFLSEL_1_2F | UART_UARTIFLS_TXIFLSEL_1_2E,
         .UARTDMACR    = 0U
     };
-    sioStart(uart_driver_inst, &uart_config);
+    // sioStart is called in the write thread on core1 so the UART IRQ
+    // is registered on core1's NVIC, consistent with where async I/O runs.
+    // initialized_flag is set by the write thread after sioStart completes.
     writeThread();
     readThread();
-    initialized_flag = true;
 }
 
 bool Rp2040ChibiOS::UARTDriver::is_initialized() {
     WITH_SEMAPHORE(_uartMutex);
     return initialized_flag;
-}
-void Rp2040ChibiOS::UARTDriver::set_blocking_writes(bool blocking) {
-    WITH_SEMAPHORE(_uartMutex);
-    _blocking_writes = blocking;
-}
-bool Rp2040ChibiOS::UARTDriver::is_blocking_writes() {
-    WITH_SEMAPHORE(_uartMutex);
-    return _blocking_writes;
 }
 int8_t Rp2040ChibiOS::UARTDriver::driverSerialNr() {
     WITH_SEMAPHORE(_uartMutex);
@@ -122,7 +115,7 @@ void Rp2040ChibiOS::UARTDriver::_end() {
 
 void Rp2040ChibiOS::UARTDriver::_flush(void) {
     if (!is_initialized()) return;
-
+    
     WITH_SEMAPHORE(_txUartMutex);
 
     ByteBuffer::IoVec vec[2];
@@ -136,7 +129,7 @@ void Rp2040ChibiOS::UARTDriver::_flush(void) {
         }
         txFIFO.advance(ret);
 
-        /* We wrote less than we asked for, stop */
+        /* We wrote less than we asked for, stop (no place in the buffer) */
         if ((unsigned)ret != vec[i].len) {
             break;
         }
@@ -170,11 +163,13 @@ void Rp2040ChibiOS::UARTDriver::async_read() {
 bool Rp2040ChibiOS::UARTDriver::tx_pending() {
     if (!is_initialized()) return false;
 
-    if (!_txUartMutex.take_nonblocking()){
-        // the thread FIFO is locked.
+    if (!_txUartMutex.take_nonblocking()) {
+        // the thread FIFO is locked, assume pending
         return true;
     }
-    return txFIFO.available() > 0;
+    bool pending = txFIFO.available() > 0;
+    _txUartMutex.give();
+    return pending;
 }
 
 uint32_t Rp2040ChibiOS::UARTDriver::_available() {
@@ -226,22 +221,6 @@ void Rp2040ChibiOS::UARTDriver::clearTxFIFO() {
 size_t Rp2040ChibiOS::UARTDriver::_write(const uint8_t *buffer, size_t size) {
     if (!is_initialized()) return 0;
 
-    if (is_blocking_writes()) {
-        size_t ret = 0;
-        while (ret < size) {
-            _txUartMutex.take_blocking();
-            while (txFIFO.space() == 0) {
-                _txUartMutex.give();
-                hal.scheduler->delay(1);
-                _txUartMutex.take_blocking();
-            }
-            txFIFO.write(buffer + ret, 1);
-            _txUartMutex.give();
-            ret++;
-        }
-        return ret;
-    }
-
     WITH_SEMAPHORE(_txUartMutex);
     return txFIFO.write(buffer, size);
 }
@@ -249,6 +228,11 @@ size_t Rp2040ChibiOS::UARTDriver::_write(const uint8_t *buffer, size_t size) {
 void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
 {
     UARTDriver * uart = (UARTDriver *)arg;
+    // sioStart here so the UART IRQ is registered on core1's NVIC,
+    // keeping all SIO driver access on the same core.
+    sioStart(uart->uart_driver_inst, &uart->_uart_config);
+    uart->initialized_flag = true;
+
     // add the number of uart interface to the name of thread
     char * thread_name;
     asprintf(&thread_name, "uart_write_thread_%d", uart->driverSerialNr());
@@ -267,6 +251,9 @@ void Rp2040ChibiOS::UARTDriver::_uart_read_thread(void *arg)
     char * thread_name;
     asprintf(&thread_name, "uart_read_thread_%d", uart->driverSerialNr());
     chRegSetThreadName(thread_name);
+    while (!uart->is_initialized()) {
+        hal.scheduler->delay_microseconds(10);
+    }
 
     while (true) {
         uart->async_read();

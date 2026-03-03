@@ -20,10 +20,10 @@
 #include "AP_HAL_rp2040ChibiOS.h"
 #include "hal.h"
 
-#define RP2040_USB_CDC_MAX_ALLOWED_BUFFER_SIZE 1024
+#define RP2040_USB_MAX_ALLOWED_BUFFER_SIZE 1024
 
-#define MAX_USB_CDC_TX_FIFO_SIZE (RP2040_UART_TX_FIFO_SIZE <= RP2040_USB_CDC_MAX_ALLOWED_BUFFER_SIZE ? RP2040_UART_TX_FIFO_SIZE : RP2040_USB_CDC_MAX_ALLOWED_BUFFER_SIZE)
-#define MAX_USB_CDC_RX_FIFO_SIZE (RP2040_UART_RX_FIFO_SIZE <= RP2040_USB_CDC_MAX_ALLOWED_BUFFER_SIZE ? RP2040_UART_RX_FIFO_SIZE : RP2040_USB_CDC_MAX_ALLOWED_BUFFER_SIZE)
+#define MAX_USB_TX_FIFO_SIZE (RP2040_USB_TX_FIFO_SIZE <= RP2040_USB_MAX_ALLOWED_BUFFER_SIZE ? RP2040_USB_TX_FIFO_SIZE : RP2040_USB_MAX_ALLOWED_BUFFER_SIZE)
+#define MAX_USB_RX_FIFO_SIZE (RP2040_USB_RX_FIFO_SIZE <= RP2040_USB_MAX_ALLOWED_BUFFER_SIZE ? RP2040_USB_RX_FIFO_SIZE : RP2040_USB_MAX_ALLOWED_BUFFER_SIZE)
 
 void usb_initialise(void);
 
@@ -36,8 +36,6 @@ public:
 
     /* rp2040 implementations of UARTDriver virtual methods */
     bool is_initialized() override;
-    void set_blocking_writes(bool blocking);
-    virtual bool is_blocking_writes();
     bool tx_pending() override;
 
     /* rp2040 implementations of BetterStream virtual methods */
@@ -58,7 +56,6 @@ protected:
 
 
     bool initialized_flag = false;
-    bool _blocking_writes;
 
     // software FIFO buffers
     ByteBuffer rxFIFO{0};

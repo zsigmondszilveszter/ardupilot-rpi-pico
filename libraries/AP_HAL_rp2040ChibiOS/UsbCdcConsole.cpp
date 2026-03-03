@@ -27,17 +27,17 @@ void usb_initialise(void)
      * after a reset.
      */
     usbDisconnectBus(serusbcfg.usbp);
-    chThdSleep(chTimeUS2I(1500));
+    chThdSleep(chTimeUS2I(2500));
     usbStart(serusbcfg.usbp, &usbcfg);
     usbConnectBus(serusbcfg.usbp);
 }
 
-#ifndef USB_CDC_WRITE_THD_WA_SIZE
-#define USB_CDC_WRITE_THD_WA_SIZE RP2040_USB_CDC_TX_FIFO_SIZE + 32
+#ifndef USB_WRITE_THD_WA_SIZE
+#define USB_WRITE_THD_WA_SIZE 256
 #endif
 
-#ifndef USB_CDC_READ_THD_WA_SIZE
-#define USB_CDC_READ_THD_WA_SIZE RP2040_USB_CDC_RX_FIFO_SIZE + 32
+#ifndef USB_READ_THD_WA_SIZE
+#define USB_READ_THD_WA_SIZE 256
 #endif
 
 Rp2040ChibiOS::UsbCdcConsole::UsbCdcConsole() {}
@@ -45,7 +45,7 @@ Rp2040ChibiOS::UsbCdcConsole::UsbCdcConsole() {}
 void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
     // setup the uart worker thread to flush the TX FIFO
     if (_usb_cdc_write_thread_ctx == nullptr) {
-        _usb_cdc_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_CDC_WRITE_THD_WA_SIZE),
+        _usb_cdc_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_WRITE_THD_WA_SIZE),
                                               "UART_TX",
                                               USB_CDC_THREAD_PRIORITY,
                                               _usb_cdc_write_thread,
@@ -60,7 +60,7 @@ void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
 void Rp2040ChibiOS::UsbCdcConsole::readThread() {
     // setup the uart worker thread to read the RX FIFO
     if (_usb_cdc_read_thread_ctx == nullptr) {
-        _usb_cdc_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_CDC_READ_THD_WA_SIZE),
+        _usb_cdc_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_READ_THD_WA_SIZE),
                                               "UART_RX",
                                               USB_CDC_THREAD_PRIORITY,
                                               _usb_cdc_read_thread,
@@ -74,19 +74,19 @@ void Rp2040ChibiOS::UsbCdcConsole::readThread() {
 
 void Rp2040ChibiOS::UsbCdcConsole::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
     if (rxS == 0) {
-        rxS = RP2040_USB_CDC_RX_FIFO_SIZE;
+        rxS = RP2040_USB_RX_FIFO_SIZE;
     }
     if (txS == 0) {
-        txS = RP2040_USB_CDC_TX_FIFO_SIZE;
+        txS = RP2040_USB_TX_FIFO_SIZE;
     }
     WITH_SEMAPHORE(_usbMutex);
     initialized_flag = false;
 
-    if (rxS > MAX_USB_CDC_RX_FIFO_SIZE) {
-        rxS = MAX_USB_CDC_RX_FIFO_SIZE;
+    if (rxS > MAX_USB_RX_FIFO_SIZE) {
+        rxS = MAX_USB_RX_FIFO_SIZE;
     }
-    if (txS > MAX_USB_CDC_TX_FIFO_SIZE) {
-        txS = MAX_USB_CDC_TX_FIFO_SIZE;
+    if (txS > MAX_USB_TX_FIFO_SIZE) {
+        txS = MAX_USB_TX_FIFO_SIZE;
     }
     if (rxS != rxFIFO.get_size()) {
         rxFIFO.set_size(rxS);
@@ -103,15 +103,6 @@ bool Rp2040ChibiOS::UsbCdcConsole::is_initialized() {
     WITH_SEMAPHORE(_usbMutex);
     return initialized_flag;
 }
-void Rp2040ChibiOS::UsbCdcConsole::set_blocking_writes(bool blocking) {
-    WITH_SEMAPHORE(_usbMutex);
-    _blocking_writes = blocking;
-}
-bool Rp2040ChibiOS::UsbCdcConsole::is_blocking_writes() {
-    WITH_SEMAPHORE(_usbMutex);
-    return _blocking_writes;
-}
-
 void Rp2040ChibiOS::UsbCdcConsole::_end() {
     WITH_SEMAPHORE(_usbMutex);
     WITH_SEMAPHORE(_txUsbMutex);
@@ -177,11 +168,13 @@ void Rp2040ChibiOS::UsbCdcConsole::async_read() {
 bool Rp2040ChibiOS::UsbCdcConsole::tx_pending() {
     if (!is_initialized()) return false;
 
-    if (!_txUsbMutex.take_nonblocking()){
-        // the thread FIFO is locked.
+    if (!_txUsbMutex.take_nonblocking()) {
+        // the thread FIFO is locked, assume pending
         return true;
     }
-    return txFIFO.available() > 0;
+    bool pending = txFIFO.available() > 0;
+    _txUsbMutex.give();
+    return pending;
 }
 
 /* rp2040 implementations of Stream virtual methods */
@@ -234,22 +227,6 @@ void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
 /* rp2040 implementations of Print virtual methods */
 size_t Rp2040ChibiOS::UsbCdcConsole::_write(const uint8_t *buffer, size_t size) {
     if (!is_initialized()) return 0;
-
-    if (is_blocking_writes()) {
-        size_t ret = 0;
-        while (ret < size) {
-            _txUsbMutex.take_blocking();
-            while (txFIFO.space() == 0) {
-                _txUsbMutex.give();
-                hal.scheduler->delay(1);
-                _txUsbMutex.take_blocking();
-            }
-            txFIFO.write(buffer + ret, 1);
-            _txUsbMutex.give();
-            ret++;
-        }
-        return ret;
-    }
 
     WITH_SEMAPHORE(_txUsbMutex);
     return txFIFO.write(buffer, size);

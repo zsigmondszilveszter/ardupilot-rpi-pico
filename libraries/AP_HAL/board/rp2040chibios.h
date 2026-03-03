@@ -20,10 +20,10 @@
 #endif
 
 // Scheduler
-#define RP2040_MAX_TIMER_PROC 32
-#define RP2040_MAX_IO_PROC 32
-#define RP2040_WATCHDOG_ENABLED 1
-#define RP2040_WATCHDOG_TIMEOUT 2000 // msec
+#define RP2040_MAX_TIMER_PROC           32
+#define RP2040_MAX_IO_PROC              32
+#define RP2040_WATCHDOG_ENABLED         1
+#define RP2040_WATCHDOG_TIMEOUT         2000 // msec
 
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2040_WATCHDOG_ENABLED
 
@@ -49,11 +49,11 @@
 #define RP2040_UART1_TX_GPIO_PIN        4U
 #define RP2040_UART1_RX_GPIO_PIN        5U
 // default UART FIFO sizes
-#define RP2040_UART_TX_FIFO_SIZE 128
-#define RP2040_UART_RX_FIFO_SIZE 128
+#define RP2040_UART_TX_FIFO_SIZE        128
+#define RP2040_UART_RX_FIFO_SIZE        128
 // default USB CDC FIFO sizes
-#define RP2040_USB_CDC_TX_FIFO_SIZE 1024
-#define RP2040_USB_CDC_RX_FIFO_SIZE 512 + 256
+#define RP2040_USB_TX_FIFO_SIZE         128
+#define RP2040_USB_RX_FIFO_SIZE         128
 
 // RC IN
 #define RP2040_RC_RX_PIN                7U

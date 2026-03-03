@@ -137,16 +137,12 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
         schedulerInstance.watchdog_pat();
     #endif
     
-    hal.gpio->pinMode(25U, 1);
-    
     callbacks->setup();
-
     schedulerInstance.watchdog_pat();
-
-    hal.scheduler->set_system_initialized();
+    schedulerInstance.set_system_initialized();
 
     thread_running = true;
-
+    
     /*
       switch to high priority for main loop
      */

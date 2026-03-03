@@ -39,7 +39,6 @@ bool sdcard_init()
 {
     WITH_SEMAPHORE(sem);
 
-    printf("SD card init\n");
     // RP2040 has no BRD_SD_SLOWDOWN parameter; slowdown is always 0
     const uint8_t sd_slowdown = 0;
 
