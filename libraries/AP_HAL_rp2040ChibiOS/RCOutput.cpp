@@ -29,6 +29,12 @@ void RCOutput::init() {
     palSetLineMode(RP2040_RC_OUT2, PAL_MODE_ALTERNATE_PWM);
     palSetLineMode(RP2040_RC_OUT3, PAL_MODE_ALTERNATE_PWM);
 
+    memset(_pending,   0, sizeof(_pending));
+    memset(_last_sent, 0, sizeof(_last_sent));
+    for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+        _chan_mode[i] = MODE_PWM_NORMAL;
+    }
+
     for (uint8_t i = 0; i < ARRAY_SIZE(pwm_drivers); i++) {
         pwm_cfg[i].frequency   = PWM_TIMER_FREQ;
         pwm_cfg[i].period      = PWM_PERIOD_TICKS;
@@ -39,17 +45,56 @@ void RCOutput::init() {
     }
 }
 
+// Minimum timer period (µs / ticks at 1 MHz) for a driver based on its channels' modes.
+// Must be large enough that the scaled pulse fits within one period.
+uint32_t RCOutput::_min_period_us(uint8_t driver_idx) const {
+    uint32_t min_p = 0;
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (chan_map[chan].driver_idx != driver_idx) {
+            continue;
+        }
+        uint32_t p = 0;
+        switch (_chan_mode[chan]) {
+        case MODE_PWM_ONESHOT:    p = 100;  break;  // max pulse 84 µs + margin
+        case MODE_PWM_ONESHOT125: p = 300;  break;  // max pulse 250 µs + margin
+        default:                  p = 0;    break;
+        }
+        if (p > min_p) {
+            min_p = p;
+        }
+    }
+    return min_p;
+}
+
+// Scale a standard 1000–2000 µs pulse to the mode's compressed range.
+pwmcnt_t RCOutput::_scale_pulse(uint8_t chan, uint16_t period_us) const {
+    switch (_chan_mode[chan]) {
+    case MODE_PWM_ONESHOT125:
+        return period_us >> 3;                  // ÷8: 1000→125, 2000→250 µs
+    case MODE_PWM_ONESHOT:
+        return (uint32_t)period_us * 42 / 1000; // ×0.042: 1000→42, 2000→84 µs
+    default:
+        return period_us;
+    }
+}
+
+void RCOutput::_write_to_hw(uint8_t chan, uint16_t period_us) {
+    _last_sent[chan] = period_us;
+    uint8_t di    = chan_map[chan].driver_idx;
+    uint8_t hw_ch = chan_map[chan].hw_channel;
+    pwmEnableChannel(pwm_drivers[di], hw_ch, _scale_pulse(chan, period_us));
+}
+
 void RCOutput::set_freq(uint32_t chmask, uint16_t freq_hz) {
     if (freq_hz == 0) {
         return;
     }
-    pwmcnt_t new_period = PWM_TIMER_FREQ / freq_hz;
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
         if (!(chmask & (1U << chan))) {
             continue;
         }
         uint8_t di = chan_map[chan].driver_idx;
-        // only change period once per driver
+        pwmcnt_t new_period = MAX(PWM_TIMER_FREQ / freq_hz, _min_period_us(di));
         if (pwm_cfg[di].period != new_period) {
             pwm_cfg[di].period = new_period;
             pwmChangePeriod(pwm_drivers[di], new_period);
@@ -71,7 +116,7 @@ void RCOutput::enable_ch(uint8_t chan) {
     }
     pwmEnableChannel(pwm_drivers[chan_map[chan].driver_idx],
                      chan_map[chan].hw_channel,
-                     value[chan]);
+                     _scale_pulse(chan, _pending[chan]));
 }
 
 void RCOutput::disable_ch(uint8_t chan) {
@@ -86,21 +131,83 @@ void RCOutput::write(uint8_t chan, uint16_t period_us) {
     if (chan >= NUM_CHANNELS) {
         return;
     }
-    value[chan] = period_us;
-    // timer clock is 1 MHz → period_us equals ticks directly
-    pwmEnableChannel(pwm_drivers[chan_map[chan].driver_idx],
-                     chan_map[chan].hw_channel,
-                     period_us);
+    _pending[chan] = period_us;
+    if (!_corked) {
+        _write_to_hw(chan, period_us);
+    }
+}
+
+void RCOutput::cork() {
+    _corked = true;
+}
+
+void RCOutput::push() {
+    if (!_corked) {
+        return;
+    }
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (_pending[chan] != _last_sent[chan]) {
+            _write_to_hw(chan, _pending[chan]);
+        }
+    }
+    _corked = false;
+}
+
+void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
+    bool driver_affected[RP2040_NR_PWM_PERIPH_ENABLED] = {};
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (!(mask & (1U << chan))) {
+            continue;
+        }
+        _chan_mode[chan] = mode;
+        driver_affected[chan_map[chan].driver_idx] = true;
+    }
+    for (uint8_t di = 0; di < RP2040_NR_PWM_PERIPH_ENABLED; di++) {
+        if (!driver_affected[di]) {
+            continue;
+        }
+        pwmcnt_t desired = MAX(PWM_TIMER_FREQ / _default_rate_hz, _min_period_us(di));
+        if (pwm_cfg[di].period != desired) {
+            pwm_cfg[di].period = desired;
+            pwmChangePeriod(pwm_drivers[di], desired);
+        }
+    }
+}
+
+enum AP_HAL::RCOutput::output_mode RCOutput::get_output_mode(uint32_t& mask) {
+    // Find the first non-NORMAL mode in use
+    output_mode first_mode = MODE_PWM_NORMAL;
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (_chan_mode[chan] != MODE_PWM_NORMAL) {
+            first_mode = _chan_mode[chan];
+            break;
+        }
+    }
+    // Build mask of all channels sharing that mode
+    mask = 0;
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (_chan_mode[chan] == first_mode) {
+            mask |= (1U << chan);
+        }
+    }
+    return first_mode;
+}
+
+void RCOutput::set_default_rate(uint16_t rate_hz) {
+    _default_rate_hz = rate_hz;
+    // Apply to all channels
+    uint32_t all_mask = (1U << NUM_CHANNELS) - 1;
+    set_freq(all_mask, rate_hz);
 }
 
 uint16_t RCOutput::read(uint8_t chan) {
     if (chan < NUM_CHANNELS) {
-        return value[chan];
+        return _pending[chan];
     }
     return 900;
 }
 
 void RCOutput::read(uint16_t* period_us, uint8_t len) {
     len = MIN(len, NUM_CHANNELS);
-    memcpy(period_us, value, len * sizeof(value[0]));
+    memcpy(period_us, _pending, len * sizeof(_pending[0]));
 }

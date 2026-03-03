@@ -38,7 +38,7 @@
 #define RP2040_SPI1_MISO_GPIO_PIN       12U
 #define RP2040_SPI1_MOSI_GPIO_PIN       15U
 #define RP2040_SPI1_SCK_GPIO_PIN        14U
-#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
+#define HAL_DEFAULT_INS_FAST_SAMPLE     1 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
 #define RP2040_SPI_CS_FOR_MPU9250       13U
 #define RP2040_SPI_CS_FOR_MPU6500       8U
 #define RP2040_SPI_CS_FOR_SDCARD        17U
@@ -78,13 +78,13 @@
 }
 
 //
-#define HAL_BOARD_NAME "Raspberry Pi Pico"
-#define HAL_CPU_CLASS HAL_CPU_CLASS_150
-#define HAL_MEM_CLASS HAL_MEM_CLASS_192
-#define HAL_STORAGE_SIZE            2048
-#define HAL_STORAGE_SIZE_AVAILABLE  HAL_STORAGE_SIZE
-#define BOARD_FLASH_SIZE HAL_STORAGE_SIZE
-#define CONFIG_HAL_BOARD_SUBTYPE HAL_BOARD_SUBTYPE_NONE
+#define HAL_BOARD_NAME                      "Raspberry rp2xxx"
+#define HAL_CPU_CLASS                       HAL_CPU_CLASS_150
+#define HAL_MEM_CLASS                       HAL_MEM_CLASS_192
+#define HAL_STORAGE_SIZE                    16384
+#define HAL_STORAGE_SIZE_AVAILABLE          HAL_STORAGE_SIZE
+#define BOARD_FLASH_SIZE                    2048
+#define CONFIG_HAL_BOARD_SUBTYPE            HAL_BOARD_SUBTYPE_NONE
 
 
 #define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))

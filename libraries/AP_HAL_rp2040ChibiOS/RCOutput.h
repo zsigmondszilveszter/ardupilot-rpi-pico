@@ -13,8 +13,11 @@ class Rp2040ChibiOS::RCOutput : public AP_HAL::RCOutput {
     void     write(uint8_t ch, uint16_t period_us) override;
     uint16_t read(uint8_t ch) override;
     void     read(uint16_t* period_us, uint8_t len) override;
-    void     cork(void) override {}
-    void     push(void) override {}
+    void     cork(void) override;
+    void     push(void) override;
+    void     set_output_mode(uint32_t mask, enum output_mode mode) override;
+    enum output_mode get_output_mode(uint32_t& mask) override;
+    void     set_default_rate(uint16_t rate_hz) override;
 private:
     // Total output channels = sum of channels actually used across all slices
     static constexpr uint8_t NUM_CHANNELS = 4;
@@ -27,9 +30,17 @@ private:
     };
     static const ChanMap chan_map[NUM_CHANNELS];
 
-    uint16_t value[NUM_CHANNELS];
+    uint16_t    _pending[NUM_CHANNELS];     // latest write() value per channel
+    uint16_t    _last_sent[NUM_CHANNELS];   // value most recently pushed to hardware
+    bool        _corked = false;
+    uint16_t    _default_rate_hz = 400;
+    output_mode _chan_mode[NUM_CHANNELS];   // MODE_PWM_NORMAL / ONESHOT / ONESHOT125
 
     PWMConfig pwm_cfg[RP2040_NR_PWM_PERIPH_ENABLED];
     // PWMD2 → GPIO 20/21,  PWMD3 → GPIO 22,  PWMD5 → GPIO 26
     PWMDriver *pwm_drivers[RP2040_NR_PWM_PERIPH_ENABLED] = {&PWMD2, &PWMD3, &PWMD5};
+
+    pwmcnt_t _scale_pulse(uint8_t chan, uint16_t period_us) const;
+    void     _write_to_hw(uint8_t chan, uint16_t period_us);
+    uint32_t _min_period_us(uint8_t driver_idx) const;
 };

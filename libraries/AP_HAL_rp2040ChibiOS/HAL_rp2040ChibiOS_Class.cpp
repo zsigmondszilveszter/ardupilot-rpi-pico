@@ -28,7 +28,7 @@ static Rp2040ChibiOS::UARTDriver uartADriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
 // static AnalogIn analogIn;
-// static Storage storageDriver;
+static Storage storageDriver;
 static GPIO gpioDriver;
 static RCInput rcinDriver{RCInput::RCProtocol::RP2040_RC_PROTOCOL};
  static RCOutput rcoutDriver;
@@ -53,7 +53,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         &spiDeviceManager,
         nullptr,// $qspiDeviceManager,
         nullptr,// &analogIn,
-        nullptr,// &storageDriver,
+        &storageDriver,
         &usb_debug_console,     /* console */
         &gpioDriver,
         &rcinDriver,

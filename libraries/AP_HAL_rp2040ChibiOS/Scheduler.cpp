@@ -515,6 +515,11 @@ void Scheduler::_io_thread(void* arg)
         // run registered IO processes
         sched->_run_io();
 
+        // process storage writes
+        if (hal.storage) {
+            hal.storage->_timer_tick();
+        }
+
 #if HAL_LOGGING_ENABLED || CH_DBG_ENABLE_STACK_CHECK == TRUE
         uint32_t now = AP_HAL::millis();
 #endif
