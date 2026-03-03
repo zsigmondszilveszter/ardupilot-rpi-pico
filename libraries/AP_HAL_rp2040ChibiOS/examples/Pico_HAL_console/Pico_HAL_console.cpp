@@ -23,7 +23,7 @@ void loop(void)
     hal.gpio->toggle(25U);
 
     counter++;
-    hal.console->printf("Test rp2040's HAL console %lu\n", counter);
+    hal.console->printf("Test rp2xxx's HAL console %lu\n", counter);
 }
 
 AP_HAL_MAIN();

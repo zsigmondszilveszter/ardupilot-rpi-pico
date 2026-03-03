@@ -21,7 +21,8 @@
 
 using namespace Rp2040ChibiOS;
 
-static Rp2040ChibiOS::UsbCdcConsole console_over_USB;
+static Rp2040ChibiOS::UsbSerialDriver usb_mavlink_serial(&SDU1, &cdc_dtr_active);
+static Rp2040ChibiOS::UsbSerialDriver usb_debug_console(&SDU2, &cdc_dtr_active2);
 static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
 static Rp2040ChibiOS::UARTDriver uartADriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
@@ -38,7 +39,7 @@ static Rp2040ChibiOS::Util utilInstance;
 
 HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
     AP_HAL::HAL(
-        &console_over_USB,
+        &usb_mavlink_serial,    /* serial(0) */
         &uartBDriver,
         nullptr, //&uartCDriver,
         nullptr,            /* no uartD */
@@ -53,7 +54,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         nullptr,// $qspiDeviceManager,
         nullptr,// &analogIn,
         nullptr,// &storageDriver,
-        &console_over_USB,
+        &usb_debug_console,     /* console */
         &gpioDriver,
         &rcinDriver,
         &rcoutDriver,
@@ -118,7 +119,7 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      */
     hal_chibios_set_priority(APM_STARTUP_PRIORITY);
 
-    hal.serial(0)->begin(115200);
+    hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (this first ACM is the serial0))
     schedulerInstance.hal_initialized();
     
     #if !defined(DISABLE_WATCHDOG)

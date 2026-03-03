@@ -1,5 +1,5 @@
 #include "hal.h"
-#include "UsbCdcConsole.h"
+#include "UsbSerialDriver.h"
 #include "usbcfg.h"
 #include "Scheduler.h"
 #include "rp2xxx_util.h"
@@ -19,17 +19,19 @@ void usb_initialise(void)
     initialised = true;
 
     sduObjectInit(&SDU1);
-    sduStart(&SDU1, &serusbcfg);
+    sduStart(&SDU1, &serusbcfg1);
+    sduObjectInit(&SDU2);
+    sduStart(&SDU2, &serusbcfg2);
 
     /*
      * Activates the USB driver and then the USB bus pull-up on D+.
      * Note, a delay is inserted in order to not have to disconnect the cable
      * after a reset.
      */
-    usbDisconnectBus(serusbcfg.usbp);
+    usbDisconnectBus(serusbcfg1.usbp);
     chThdSleep(chTimeUS2I(2500));
-    usbStart(serusbcfg.usbp, &usbcfg);
-    usbConnectBus(serusbcfg.usbp);
+    usbStart(serusbcfg1.usbp, &usbcfg);
+    usbConnectBus(serusbcfg1.usbp);
 }
 
 #ifndef USB_WRITE_THD_WA_SIZE
@@ -40,9 +42,10 @@ void usb_initialise(void)
 #define USB_READ_THD_WA_SIZE 256
 #endif
 
-Rp2040ChibiOS::UsbCdcConsole::UsbCdcConsole() {}
+Rp2040ChibiOS::UsbSerialDriver::UsbSerialDriver(SerialUSBDriver* sdu, volatile bool* dtr)
+    : _sdu(sdu), _dtr(dtr) {}
 
-void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
+void Rp2040ChibiOS::UsbSerialDriver::writeThread() {
     // setup the uart worker thread to flush the TX FIFO
     if (_usb_cdc_write_thread_ctx == nullptr) {
         _usb_cdc_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_WRITE_THD_WA_SIZE),
@@ -57,7 +60,7 @@ void Rp2040ChibiOS::UsbCdcConsole::writeThread() {
     }
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::readThread() {
+void Rp2040ChibiOS::UsbSerialDriver::readThread() {
     // setup the uart worker thread to read the RX FIFO
     if (_usb_cdc_read_thread_ctx == nullptr) {
         _usb_cdc_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_READ_THD_WA_SIZE),
@@ -72,7 +75,7 @@ void Rp2040ChibiOS::UsbCdcConsole::readThread() {
     }
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
+void Rp2040ChibiOS::UsbSerialDriver::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
     if (rxS == 0) {
         rxS = RP2040_USB_RX_FIFO_SIZE;
     }
@@ -99,11 +102,11 @@ void Rp2040ChibiOS::UsbCdcConsole::_begin(uint32_t b, uint16_t rxS, uint16_t txS
     initialized_flag = true;
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::is_initialized() {
+bool Rp2040ChibiOS::UsbSerialDriver::is_initialized() {
     WITH_SEMAPHORE(_usbMutex);
     return initialized_flag;
 }
-void Rp2040ChibiOS::UsbCdcConsole::_end() {
+void Rp2040ChibiOS::UsbSerialDriver::_end() {
     WITH_SEMAPHORE(_usbMutex);
     WITH_SEMAPHORE(_txUsbMutex);
     WITH_SEMAPHORE(_rxUsbMutex);
@@ -115,10 +118,10 @@ void Rp2040ChibiOS::UsbCdcConsole::_end() {
 }
 
 
-void Rp2040ChibiOS::UsbCdcConsole::_flush(void) {
+void Rp2040ChibiOS::UsbSerialDriver::_flush(void) {
     if (!is_initialized()) return;
-    if ((&SDU1)->state != SDU_READY) return;
-    if (!cdc_dtr_active) return;
+    if (_sdu->state != SDU_READY) return;
+    if (!*_dtr) return;
 
     WITH_SEMAPHORE(_txUsbMutex);
 
@@ -126,7 +129,7 @@ void Rp2040ChibiOS::UsbCdcConsole::_flush(void) {
     const auto n_vec = txFIFO.peekiovec(vec, txFIFO.available());
 
     for (int i = 0; i < n_vec; i++) {
-        size_t ret = chnWriteTimeout(&SDU1, vec[i].data, vec[i].len, TIME_IMMEDIATE);
+        size_t ret = chnWriteTimeout(_sdu, vec[i].data, vec[i].len, TIME_IMMEDIATE);
 
         if (!ret) {
             break;
@@ -140,9 +143,9 @@ void Rp2040ChibiOS::UsbCdcConsole::_flush(void) {
     }
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::async_read() {
+void Rp2040ChibiOS::UsbSerialDriver::async_read() {
     if (!is_initialized()) return;
-    if ((&SDU1)->state != SDU_READY) return;
+    if (_sdu->state != SDU_READY) return;
 
     WITH_SEMAPHORE(_rxUsbMutex);
 
@@ -151,7 +154,7 @@ void Rp2040ChibiOS::UsbCdcConsole::async_read() {
     const auto n_vec = rxFIFO.reserve(vec, rxFIFO.space());
 
     for (uint32_t i = 0; i < n_vec; i++) {
-        size_t ret = chnReadTimeout(&SDU1, vec[i].data, vec[i].len, TIME_IMMEDIATE);
+        size_t ret = chnReadTimeout(_sdu, vec[i].data, vec[i].len, TIME_IMMEDIATE);
 
         if (!ret) {
             break;
@@ -165,7 +168,7 @@ void Rp2040ChibiOS::UsbCdcConsole::async_read() {
     }
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::tx_pending() {
+bool Rp2040ChibiOS::UsbSerialDriver::tx_pending() {
     if (!is_initialized()) return false;
 
     if (!_txUsbMutex.take_nonblocking()) {
@@ -178,7 +181,7 @@ bool Rp2040ChibiOS::UsbCdcConsole::tx_pending() {
 }
 
 /* rp2040 implementations of Stream virtual methods */
-uint32_t Rp2040ChibiOS::UsbCdcConsole::_available() {
+uint32_t Rp2040ChibiOS::UsbSerialDriver::_available() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_rxUsbMutex);
@@ -186,7 +189,7 @@ uint32_t Rp2040ChibiOS::UsbCdcConsole::_available() {
     return rxFIFO.available();
 }
 
-uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() {
+uint32_t Rp2040ChibiOS::UsbSerialDriver::txspace() {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_txUsbMutex);
@@ -194,7 +197,7 @@ uint32_t Rp2040ChibiOS::UsbCdcConsole::txspace() {
     return txFIFO.space();
 }
 
-ssize_t Rp2040ChibiOS::UsbCdcConsole::_read(uint8_t *buffer, uint16_t count)
+ssize_t Rp2040ChibiOS::UsbSerialDriver::_read(uint8_t *buffer, uint16_t count)
 {
     if (!is_initialized()) return 0;
 
@@ -203,7 +206,7 @@ ssize_t Rp2040ChibiOS::UsbCdcConsole::_read(uint8_t *buffer, uint16_t count)
     return rxFIFO.read(buffer, count);
 }
 
-bool Rp2040ChibiOS::UsbCdcConsole::_discard_input() {
+bool Rp2040ChibiOS::UsbSerialDriver::_discard_input() {
     if (!is_initialized()) {
         return true;
     }
@@ -214,7 +217,7 @@ bool Rp2040ChibiOS::UsbCdcConsole::_discard_input() {
     return true;
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
+void Rp2040ChibiOS::UsbSerialDriver::clearTxFIFO() {
     if (!is_initialized()) {
         return;
     }
@@ -225,31 +228,31 @@ void Rp2040ChibiOS::UsbCdcConsole::clearTxFIFO() {
 }
 
 /* rp2040 implementations of Print virtual methods */
-size_t Rp2040ChibiOS::UsbCdcConsole::_write(const uint8_t *buffer, size_t size) {
+size_t Rp2040ChibiOS::UsbSerialDriver::_write(const uint8_t *buffer, size_t size) {
     if (!is_initialized()) return 0;
 
     WITH_SEMAPHORE(_txUsbMutex);
     return txFIFO.write(buffer, size);
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::_usb_cdc_write_thread(void *arg)
+void Rp2040ChibiOS::UsbSerialDriver::_usb_cdc_write_thread(void *arg)
 {
-    Rp2040ChibiOS::UsbCdcConsole * console = (Rp2040ChibiOS::UsbCdcConsole *)arg;
+    Rp2040ChibiOS::UsbSerialDriver * driver = (Rp2040ChibiOS::UsbSerialDriver *)arg;
     chRegSetThreadName("usb_cdc_write_thread");
 
     while (true) {
-        console->flush();
+        driver->flush();
         hal.scheduler->delay_microseconds(1000);
     }
 }
 
-void Rp2040ChibiOS::UsbCdcConsole::_usb_cdc_read_thread(void *arg)
+void Rp2040ChibiOS::UsbSerialDriver::_usb_cdc_read_thread(void *arg)
 {
-    Rp2040ChibiOS::UsbCdcConsole * console = (Rp2040ChibiOS::UsbCdcConsole *)arg;
+    Rp2040ChibiOS::UsbSerialDriver * driver = (Rp2040ChibiOS::UsbSerialDriver *)arg;
     chRegSetThreadName("usb_cdc_read_thread");
 
     while (true) {
-        console->async_read();
+        driver->async_read();
         hal.scheduler->delay_microseconds(1000);
     }
 }

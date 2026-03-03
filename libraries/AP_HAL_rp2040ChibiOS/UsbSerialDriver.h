@@ -19,6 +19,7 @@
 
 #include "AP_HAL_rp2040ChibiOS.h"
 #include "hal.h"
+#include "hwdef/common/usbcfg.h"
 
 #define RP2040_USB_MAX_ALLOWED_BUFFER_SIZE 1024
 
@@ -27,9 +28,9 @@
 
 void usb_initialise(void);
 
-class Rp2040ChibiOS::UsbCdcConsole : public AP_HAL::UARTDriver {
+class Rp2040ChibiOS::UsbSerialDriver : public AP_HAL::UARTDriver {
 public:
-    UsbCdcConsole();
+    UsbSerialDriver(SerialUSBDriver* sdu, volatile bool* dtr);
 
     void writeThread(void);
     void readThread(void);
@@ -64,8 +65,12 @@ protected:
     HAL_Semaphore _txUsbMutex;
     HAL_Semaphore _rxUsbMutex;
 
-    thread_t* _usb_cdc_write_thread_ctx;
-    thread_t* _usb_cdc_read_thread_ctx;
+    thread_t* _usb_cdc_write_thread_ctx = nullptr;
+    thread_t* _usb_cdc_read_thread_ctx  = nullptr;
     static void _usb_cdc_write_thread(void *arg);
     static void _usb_cdc_read_thread(void *arg);
+
+private:
+    SerialUSBDriver*  _sdu;
+    volatile bool*    _dtr;
 };

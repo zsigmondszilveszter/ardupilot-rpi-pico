@@ -35,6 +35,7 @@ void setup(void)
     setup_uart(hal.serial(3), "SERIAL3");  // 1st GPS
     setup_uart(hal.serial(4), "SERIAL4");  // 2nd GPS
     setup_uart(hal.serial(5), "SERIAL5");  // RCin
+    setup_uart(hal.console, "Debug Console");
 }
 
 
@@ -62,6 +63,7 @@ void loop(void)
     read_uart(hal.serial(3), "SERIAL3");
     read_uart(hal.serial(4), "SERIAL4");
     read_uart(hal.serial(5), "SERIAL5");
+    read_uart(hal.console, "Debug Console");
 
     hal.gpio->toggle(25U);
 }
