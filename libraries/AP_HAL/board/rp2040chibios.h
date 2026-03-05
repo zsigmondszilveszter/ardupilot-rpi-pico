@@ -38,7 +38,7 @@
 #define RP2040_SPI1_MISO_GPIO_PIN       12U
 #define RP2040_SPI1_MOSI_GPIO_PIN       15U
 #define RP2040_SPI1_SCK_GPIO_PIN        14U
-#define HAL_DEFAULT_INS_FAST_SAMPLE     1 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
 #define RP2040_SPI_CS_FOR_MPU9250       13U
 #define RP2040_SPI_CS_FOR_MPU6500       8U
 #define RP2040_SPI_CS_FOR_SDCARD        17U
@@ -52,8 +52,8 @@
 #define RP2040_UART_TX_FIFO_SIZE        128
 #define RP2040_UART_RX_FIFO_SIZE        128
 // default USB CDC FIFO sizes
-#define RP2040_USB_TX_FIFO_SIZE         128
-#define RP2040_USB_RX_FIFO_SIZE         128
+#define RP2040_USB_TX_FIFO_SIZE         256
+#define RP2040_USB_RX_FIFO_SIZE         256
 
 // RC IN
 #define RP2040_RC_RX_PIN                7U
@@ -81,7 +81,7 @@
 #define HAL_BOARD_NAME                      "Raspberry rp2xxx"
 #define HAL_CPU_CLASS                       HAL_CPU_CLASS_150
 #define HAL_MEM_CLASS                       HAL_MEM_CLASS_192
-#define HAL_STORAGE_SIZE                    16384
+#define HAL_STORAGE_SIZE                    4096
 #define HAL_STORAGE_SIZE_AVAILABLE          HAL_STORAGE_SIZE
 #define BOARD_FLASH_SIZE                    2048
 #define CONFIG_HAL_BOARD_SUBTYPE            HAL_BOARD_SUBTYPE_NONE

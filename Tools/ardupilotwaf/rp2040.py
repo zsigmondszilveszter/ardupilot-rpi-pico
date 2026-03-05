@@ -52,7 +52,9 @@ def setup_optimization(env):
         OPTIMIZE = "-Os"
     env.CFLAGS += [ OPTIMIZE ]
     env.CXXFLAGS += [ OPTIMIZE ]
-    env.CHIBIOS_BUILD_FLAGS += ' USE_COPT=%s' % OPTIMIZE
+    if env.DEBUG or env.DEBUG_SYMBOLS:
+        env.CHIBIOS_BUILD_FLAGS += ' USE_OPT="-g3 -gdwarf-4 -falign-functions=16 -fno-omit-frame-pointer"'
+    env.CHIBIOS_BUILD_FLAGS += ' USE_COPT=%s' % OPTIMIZE 
 
 def load_env_vars(env):
     '''optionally load extra environment variables from env.py in the build directory'''

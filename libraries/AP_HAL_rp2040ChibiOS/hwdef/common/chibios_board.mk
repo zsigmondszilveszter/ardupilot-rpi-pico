@@ -5,7 +5,7 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -g -fomit-frame-pointer -falign-functions=16
+  USE_OPT = -fomit-frame-pointer -falign-functions=16
 endif
 
 # C specific options here (added to USE_OPT).
@@ -239,7 +239,7 @@ CPPWARN = -Wall -Wextra -Wundef -Werror
 # List all user C define here, like -D_DEBUG=1
 UDEFS = $(ENV_UDEFS) $(FATFS_FLAGS) -DHAL_BOARD_NAME=\"$(HAL_BOARD_NAME)\" \
         -DHAL_MAX_STACK_FRAME_SIZE=$(HAL_MAX_STACK_FRAME_SIZE) \
-        -DCRT0_VTOR_INIT=1 -DCRT0_EXTRA_CORES_NUMBER=1 -DPICO_NO_FPGA_CHECK -DNDEBUG
+        -DCRT0_VTOR_INIT=1 -DCRT0_EXTRA_CORES_NUMBER=1 -DPICO_NO_FPGA_CHECK -DNDEBUG -DHAL_SDCARD_SPI_HOOK=TRUE
 
 ifeq ($(ENABLE_ASSERTS),yes)
  UDEFS += -DHAL_CHIBIOS_ENABLE_ASSERTS

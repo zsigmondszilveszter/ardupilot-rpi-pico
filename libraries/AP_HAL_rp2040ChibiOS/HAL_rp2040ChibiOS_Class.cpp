@@ -122,6 +122,15 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
     hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (this first ACM is the serial0))
     schedulerInstance.hal_initialized();
     
+    #if defined(HAVE_FILESYSTEM_SUPPORT)
+        AP::FS().retry_mount();
+    #endif
+    
+    callbacks->setup();
+    schedulerInstance.set_system_initialized();
+
+    thread_running = true;
+    
     #if !defined(DISABLE_WATCHDOG)
         // setup watchdog to reset if main loop stops
         if (AP_BoardConfig::watchdog_enabled()) {
@@ -132,17 +141,6 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
             INTERNAL_ERROR(AP_InternalError::error_t::watchdog_reset);
         }
     #endif // DISABLE_WATCHDOG
-    
-    #if defined(HAVE_FILESYSTEM_SUPPORT)
-        AP::FS().retry_mount();
-        schedulerInstance.watchdog_pat();
-    #endif
-    
-    callbacks->setup();
-    schedulerInstance.watchdog_pat();
-    schedulerInstance.set_system_initialized();
-
-    thread_running = true;
     
     /*
       switch to high priority for main loop

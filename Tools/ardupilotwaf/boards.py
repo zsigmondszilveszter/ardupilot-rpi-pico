@@ -1174,7 +1174,7 @@ class rp2040ChibiOS(Board):
             '-std=c11'
         ]
 
-        cfg.env.PROCESS_STACK = "0x400"
+        cfg.env.PROCESS_STACK = "0xC00"
         cfg.env.MAIN_STACK = "0x400"
 
 
@@ -1267,7 +1267,7 @@ class rp2040ChibiOS(Board):
             ('9','3','1'),
             ('10','2','1'),
             ('10','3','1'),
-            ('12','2','0')
+            ('12','3','1')
         ]
 
         if cfg.options.Werror or cfg.env.CC_VERSION in gcc_whitelist:

@@ -143,10 +143,10 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
         }
     }
 #else
-    // if (!bus.bouncebuffer_setup(send, len, recv, len)) {
-    //     set_chip_select(old_cs_forced);
-    //     return false;
-    // }
+    if (!bus.bouncebuffer_setup(send, len, recv, len)) {
+        set_chip_select(old_cs_forced);
+        return false;
+    }
     osalSysLock();
     hal.util->persistent_data.spi_count++;
     if (send == nullptr) {

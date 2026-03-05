@@ -12,9 +12,14 @@
 #include <AP_Common/time.h>
 
 #include <ff.h>
+#if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
 #include <AP_HAL_ChibiOS/sdcard.h>
-#include <GCS_MAVLink/GCS.h>
 #include <AP_HAL_ChibiOS/hwdef/common/stm32_util.h>
+#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
+#include <AP_HAL_rp2040ChibiOS/sdcard.h>
+#include <AP_HAL_rp2040ChibiOS/hwdef/common/rp2xxx_util.h>
+#endif
+#include <GCS_MAVLink/GCS.h>
 
 #if 0
 #define debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
@@ -69,12 +74,12 @@ static int new_file_descriptor(const char *pathname)
             continue;
         }
         if (file_table[i] == NULL) {
-            stream = (FAT_FILE *) calloc(sizeof(FAT_FILE),1);
+            stream = (FAT_FILE *) calloc(1, sizeof(FAT_FILE));
             if (stream == NULL) {
                 errno = ENOMEM;
                 return -1;
             }
-            fh = (FIL *) calloc(sizeof(FIL),1);
+            fh = (FIL *) calloc(1, sizeof(FIL));
             if (fh == NULL) {
                 free(stream);
                 errno = ENOMEM;
