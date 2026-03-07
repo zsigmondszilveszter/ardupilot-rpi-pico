@@ -398,28 +398,7 @@ static void sof_handler(USBDriver *usbp) {
   osalSysUnlockFromISR();
 }
 
-/*
- * DTR state per CDC interface.
- * cdc_dtr_active  — CDC1 (/dev/ttyACM0, MAVLink)
- * cdc_dtr_active2 — CDC2 (/dev/ttyACM1, debug console)
- */
-volatile bool cdc_dtr_active  = false;
-volatile bool cdc_dtr_active2 = false;
-
 static bool requests_hook(USBDriver *usbp) {
-  if ((usbp->setup[0] & USB_RTYPE_TYPE_MASK) == USB_RTYPE_TYPE_CLASS) {
-    if (usbp->setup[1] == CDC_SET_CONTROL_LINE_STATE) {
-      /* Bit 0 of wValue low byte is DTR.
-         setup[4] is the wIndex low byte (interface number). */
-      bool dtr = (usbp->setup[2] & 0x01U) != 0U;
-      if (usbp->setup[4] == USB_CDC_CIF_NUM0) {
-        cdc_dtr_active  = dtr;
-      }
-      if (usbp->setup[4] == USB_CDC_CIF_NUM1) {
-        cdc_dtr_active2 = dtr;
-      }
-    }
-  }
   return sduRequestsHook(usbp);
 }
 

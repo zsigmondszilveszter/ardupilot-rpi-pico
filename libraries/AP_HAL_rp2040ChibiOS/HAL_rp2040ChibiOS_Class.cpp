@@ -21,13 +21,13 @@
 
 using namespace Rp2040ChibiOS;
 
-static Rp2040ChibiOS::UsbSerialDriver usb_mavlink_serial(&SDU1, &cdc_dtr_active);
-static Rp2040ChibiOS::UsbSerialDriver usb_debug_console(&SDU2, &cdc_dtr_active2);
-static Rp2040ChibiOS::UARTDriver uartBDriver(0); // UART 0
-static Rp2040ChibiOS::UARTDriver uartADriver(1); // UART 1
+static Rp2040ChibiOS::UsbSerialDriver usb_mavlink_serial(&SDU1);
+static Rp2040ChibiOS::UsbSerialDriver usb_debug_console(&SDU2);
+static Rp2040ChibiOS::UARTDriver uartADriver(0); // UART 0
+//static Rp2040ChibiOS::UARTDriver uartBDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
-// static AnalogIn analogIn;
+static AnalogIn analogIn;
 static Storage storageDriver;
 static GPIO gpioDriver;
 static RCInput rcinDriver{RCInput::RCProtocol::RP2040_RC_PROTOCOL};
@@ -40,9 +40,9 @@ static Rp2040ChibiOS::Util utilInstance;
 HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
     AP_HAL::HAL(
         &usb_mavlink_serial,    /* serial(0) */
-        &uartBDriver,
+        nullptr, //&uartBDriver,
         nullptr, //&uartCDriver,
-        nullptr,            /* no uartD */
+        &uartADriver,            /* no uartD */
         nullptr,            /* no uartE */
         nullptr, //&uartFDriver, //rcin
         nullptr,            /* no uartG */
@@ -52,7 +52,7 @@ HAL_Rp2040ChibiOS::HAL_Rp2040ChibiOS() :
         &i2cDeviceManager,
         &spiDeviceManager,
         nullptr,// $qspiDeviceManager,
-        nullptr,// &analogIn,
+        &analogIn,
         &storageDriver,
         &usb_debug_console,     /* console */
         &gpioDriver,
@@ -70,7 +70,7 @@ static bool core_1_started = false;
 static bool thread_running = false;        /**< Daemon status flag */
 static thread_t* daemon_task;              /**< Handle of daemon task / thread */
 extern const AP_HAL::HAL& hal;
-semaphore_t core_sync_sem;
+semaphore_t core_sync_sem = __SEMAPHORE_DATA(core_sync_sem, 0);
 
 /*
   set the priority of the main APM task
@@ -97,8 +97,6 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
 {
     daemon_task = chThdGetSelfX();
 
-    chSemObjectInit(&core_sync_sem, 0);
-
     /*
       switch to high priority for main loop
      */
@@ -111,6 +109,8 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      * up to the programmer to do this in the correct order.
      * Scheduler should likely come first. */
     hal.scheduler->init();
+    hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (the first ACM is the serial0, if no other ACM device is connected))
+    hal.gpio->init();
     hal.rcout->init();
 
      /*
@@ -119,7 +119,6 @@ void HAL_Rp2040ChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
      */
     hal_chibios_set_priority(APM_STARTUP_PRIORITY);
 
-    hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (this first ACM is the serial0))
     schedulerInstance.hal_initialized();
     
     #if defined(HAVE_FILESYSTEM_SUPPORT)

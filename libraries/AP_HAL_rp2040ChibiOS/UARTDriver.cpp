@@ -60,34 +60,42 @@ void Rp2040ChibiOS::UARTDriver::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
     if (txS == 0) {
         txS = RP2040_UART_TX_FIFO_SIZE;
     }
-    if (is_initialized()) {
-        // it is already initialized, reset it
-        _end();
+
+    {
+        WITH_SEMAPHORE(_uartMutex);
+        if (rxS > MAX_UART_RX_FIFO_SIZE) {
+            rxS = MAX_UART_RX_FIFO_SIZE;
+        }
+        if (txS > MAX_UART_TX_FIFO_SIZE) {
+            txS = MAX_UART_TX_FIFO_SIZE;
+        }
+        if (rxS != rxFIFO.get_size()) {
+            rxFIFO.set_size(rxS);
+        }
+        if (txS != txFIFO.get_size()) {
+            txFIFO.set_size(txS);
+        }
+        _uart_config = {
+            .baud         = b,
+            .UARTLCR_H    = UART_UARTLCR_H_WLEN_8BITS | UART_UARTLCR_H_FEN,
+            .UARTCR       = 0U,
+            .UARTIFLS     = UART_UARTIFLS_RXIFLSEL_1_2F | UART_UARTIFLS_TXIFLSEL_1_2E,
+            .UARTDMACR    = 0U
+        };
     }
 
-    WITH_SEMAPHORE(_uartMutex);
-    if (rxS > MAX_UART_RX_FIFO_SIZE) {
-        rxS = MAX_UART_RX_FIFO_SIZE;
-    }
-    if (txS > MAX_UART_TX_FIFO_SIZE) {
-        txS = MAX_UART_TX_FIFO_SIZE;
-    }
-    if (rxS != rxFIFO.get_size()) {
-        rxFIFO.set_size(rxS);
-    }
-    if (txS != txFIFO.get_size()) {
-        txFIFO.set_size(txS);
+    if (initialized_flag) {
+        // Already running: signal the write thread to restart sio with the new
+        // config. sioStop/sioStart must run on core1 (where the IRQ was
+        // registered), so we delegate to the write thread and wait.
+        _restart_pending = true;
+        while (_restart_pending) {
+            hal.scheduler->delay_microseconds(100);
+        }
+        return;
     }
 
-    _uart_config = {
-        .baud         = b,
-        .UARTLCR_H    = UART_UARTLCR_H_WLEN_8BITS | UART_UARTLCR_H_FEN,
-        .UARTCR       = 0U,
-        .UARTIFLS     = UART_UARTIFLS_RXIFLSEL_1_2F | UART_UARTIFLS_TXIFLSEL_1_2E,
-        .UARTDMACR    = 0U
-    };
-    // sioStart is called in the write thread on core1 so the UART IRQ
-    // is registered on core1's NVIC, consistent with where async I/O runs.
+    // First-time init: spawn threads. The write thread calls sioStart on core1.
     // initialized_flag is set by the write thread after sioStart completes.
     writeThread();
     readThread();
@@ -239,6 +247,11 @@ void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
     chRegSetThreadName(thread_name);
 
     while (true) {
+        if (uart->_restart_pending) {
+            sioStop(uart->uart_driver_inst);
+            sioStart(uart->uart_driver_inst, &uart->_uart_config);
+            uart->_restart_pending = false;
+        }
         uart->flush();
         hal.scheduler->delay_microseconds(1000);
     }

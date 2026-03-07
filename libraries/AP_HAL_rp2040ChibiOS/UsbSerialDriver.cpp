@@ -3,6 +3,7 @@
 #include "usbcfg.h"
 #include "Scheduler.h"
 #include "rp2xxx_util.h"
+#include "GPIO.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -42,8 +43,8 @@ void usb_initialise(void)
 #define USB_READ_THD_WA_SIZE 256
 #endif
 
-Rp2040ChibiOS::UsbSerialDriver::UsbSerialDriver(SerialUSBDriver* sdu, volatile bool* dtr)
-    : _sdu(sdu), _dtr(dtr) {}
+Rp2040ChibiOS::UsbSerialDriver::UsbSerialDriver(SerialUSBDriver* sdu)
+    : _sdu(sdu) {}
 
 void Rp2040ChibiOS::UsbSerialDriver::writeThread() {
     // setup the uart worker thread to flush the TX FIFO
@@ -121,7 +122,6 @@ void Rp2040ChibiOS::UsbSerialDriver::_end() {
 void Rp2040ChibiOS::UsbSerialDriver::_flush(void) {
     if (!is_initialized()) return;
     if (_sdu->state != SDU_READY) return;
-    if (!*_dtr) return;
 
     WITH_SEMAPHORE(_txUsbMutex);
 
@@ -146,6 +146,8 @@ void Rp2040ChibiOS::UsbSerialDriver::_flush(void) {
 void Rp2040ChibiOS::UsbSerialDriver::async_read() {
     if (!is_initialized()) return;
     if (_sdu->state != SDU_READY) return;
+
+    ((GPIO *)hal.gpio)->set_usb_connected();
 
     WITH_SEMAPHORE(_rxUsbMutex);
 

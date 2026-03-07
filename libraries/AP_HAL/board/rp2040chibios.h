@@ -20,10 +20,12 @@
 #endif
 
 // Scheduler
+#define RP2040_SCHEDULER_PERF_DUMP      0   // set to 1 to enable periodic per-task timing dump to console
 #define RP2040_MAX_TIMER_PROC           32
 #define RP2040_MAX_IO_PROC              32
 #define RP2040_WATCHDOG_ENABLED         1
 #define RP2040_WATCHDOG_TIMEOUT         2000 // msec
+#define SCHEDULER_DEFAULT_LOOP_RATE     50
 
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2040_WATCHDOG_ENABLED
 
@@ -38,10 +40,10 @@
 #define RP2040_SPI1_MISO_GPIO_PIN       12U
 #define RP2040_SPI1_MOSI_GPIO_PIN       15U
 #define RP2040_SPI1_SCK_GPIO_PIN        14U
-#define HAL_DEFAULT_INS_FAST_SAMPLE     0 // TODO figure out why rp2040 can't keep up with a 1khz sample rate (Update, it might be able to, after increasing the default clock to 200MHz)
 #define RP2040_SPI_CS_FOR_MPU9250       13U
 #define RP2040_SPI_CS_FOR_MPU6500       8U
 #define RP2040_SPI_CS_FOR_SDCARD        17U
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0 
 
 // UART
 #define RP2040_UART0_TX_GPIO_PIN        0U
@@ -102,6 +104,9 @@
 // 0x76 is the BMP280 i2c low address
 #define PROBE_BMP280_BARO PROBE_BARO_I2C(BMP280, 1, 0x76)
 
+// 0x77 is the BMP085/BMP180 fixed i2c address
+#define PROBE_BMP085_BARO PROBE_BARO_I2C(BMP085, 1, 0x77)
+
 // MPU 6500 on SPI
 #define PROBE_MPU6500_INS PROBE_IMU_SPI(Invensense, "mpu6500", ROTATION_NONE)
 
@@ -111,7 +116,7 @@
 
 #define HAL_INS_PROBE_LIST PROBE_MPU9250_INS; PROBE_MPU6500_INS
 #define HAL_MAG_PROBE_LIST PROBE_MPU9250_MAG; PROBE_MAG3110_MAG
-#define HAL_BARO_PROBE_LIST PROBE_BMP280_BARO
+#define HAL_BARO_PROBE_LIST PROBE_BMP280_BARO; PROBE_BMP085_BARO
 
 #define HAL_HAVE_BOARD_VOLTAGE      1
 #define HAL_HAVE_SERVO_VOLTAGE      0
@@ -129,6 +134,8 @@
 #endif
 
 // I2C configuration
+// Bus base is 1 because the only I2C peripheral is hardware I2C1
+#define HAL_I2C_BUS_BASE 1
 #define HAL_I2C1_CONFIG { &I2CD1, 0, 0, 0, RP2040_I2C1_SCL_GPIO_PIN, RP2040_I2C1_SDA_GPIO_PIN }
 
 #define HAL_I2C_DEVICE_LIST HAL_I2C1_CONFIG
@@ -145,11 +152,11 @@
 #define HAL_SPI_DEVICE_MPU9250  SPIDesc("mpu9250", SPI_BUS_1, 1, \
     RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
     RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU9250, \
-    0, 1*SPI_MHZ,  10*SPI_MHZ)
+    0, 1*SPI_MHZ,  9*SPI_MHZ)
 #define HAL_SPI_DEVICE_MPU6500  SPIDesc("mpu6500", SPI_BUS_1, 2, \
     RP2040_SPI1_MISO_GPIO_PIN, RP2040_SPI1_MOSI_GPIO_PIN, \
     RP2040_SPI1_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_MPU6500, \
-    0, 1*SPI_MHZ,  10*SPI_MHZ)
+    0, 1*SPI_MHZ,  9*SPI_MHZ)
 #define HAL_SPI_DEVICE_SDCARD  SPIDesc("sdcard", SPI_BUS_0, 3, \
     RP2040_SPI0_MISO_GPIO_PIN, RP2040_SPI0_MOSI_GPIO_PIN, \
     RP2040_SPI0_SCK_GPIO_PIN, RP2040_SPI_CS_FOR_SDCARD, \

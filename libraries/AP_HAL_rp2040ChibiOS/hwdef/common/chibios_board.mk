@@ -147,7 +147,17 @@ CSRC += $(HWDEF)/common/hrt.c \
      $(HWDEF)/common/usbcfg.c \
      $(HWDEF)/common/bouncebuffer.c \
      $(HWDEF)/common/stubs.c \
-     $(HWDEF)/common/pio.c
+     $(HWDEF)/common/pio.c \
+     $(HWDEF)/common/rp2040_rom_float_init.c
+
+# RP2040 ROM floating-point shims: added to ALLXASMSRC so they survive the
+# ASMXSRC = $(ALLXASMSRC) reset below.
+ALLXASMSRC += $(HWDEF)/common/float_aeabi_rp2040.S
+ALLXASMSRC += $(HWDEF)/common/double_aeabi_rp2040.S
+# B0 silicon shims: always compiled (PICO_*_SUPPORT_ROM_V1=1 is hardcoded in
+# rp2040_rom_float_asm.h). On B1 the shims exist in flash but are never called.
+ALLXASMSRC += $(HWDEF)/common/float_v1_rom_shim_rp2040.S
+ALLXASMSRC += $(HWDEF)/common/double_v1_rom_shim_rp2040.S
 #	   $(TESTSRC) \
 #	   test.c
 ifneq ($(CRASHCATCHER),)

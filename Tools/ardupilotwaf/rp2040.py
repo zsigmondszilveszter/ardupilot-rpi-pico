@@ -49,7 +49,7 @@ def setup_optimization(env):
     elif env.OPTIMIZE:
         OPTIMIZE = env.OPTIMIZE
     else:
-        OPTIMIZE = "-Os"
+        OPTIMIZE = "-O2"
     env.CFLAGS += [ OPTIMIZE ]
     env.CXXFLAGS += [ OPTIMIZE ]
     if env.DEBUG or env.DEBUG_SYMBOLS:
@@ -204,4 +204,32 @@ def buildChibiOS(bld):
                 'ftell', 'freopen', 'remove', 'vfprintf', 'fscanf',
                 '_gettimeofday', '_times', '_times_r', '_gettimeofday_r', 'time', 'clock' ]
     for w in wraplist:
+        bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
+
+    # RP2040 ROM float shim: redirect soft-float calls to ROM-backed routines
+    float_wraplist = [
+        '__aeabi_frsub', '__aeabi_fsub', '__aeabi_fadd', '__aeabi_fdiv', '__aeabi_fmul',
+        '__aeabi_cfrcmple', '__aeabi_cfcmple', '__aeabi_cfcmpeq',
+        '__aeabi_fcmpeq', '__aeabi_fcmplt', '__aeabi_fcmple',
+        '__aeabi_fcmpge', '__aeabi_fcmpgt', '__aeabi_fcmpun',
+        '__aeabi_ui2f', '__aeabi_i2f', '__aeabi_f2iz', '__aeabi_f2uiz',
+        '__aeabi_l2f', '__aeabi_ul2f', '__aeabi_f2lz', '__aeabi_f2ulz',
+        '__aeabi_f2d',
+        'sqrtf', 'cosf', 'sinf', 'sincosf', 'tanf', 'atan2f', 'expf', 'logf',
+    ]
+    for w in float_wraplist:
+        bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
+
+    # RP2040 ROM double shim: redirect soft-double calls to ROM-backed routines
+    double_wraplist = [
+        '__aeabi_drsub', '__aeabi_dsub', '__aeabi_dadd', '__aeabi_ddiv', '__aeabi_dmul',
+        '__aeabi_cdrcmple', '__aeabi_cdcmple', '__aeabi_cdcmpeq',
+        '__aeabi_dcmpeq', '__aeabi_dcmplt', '__aeabi_dcmple',
+        '__aeabi_dcmpge', '__aeabi_dcmpgt', '__aeabi_dcmpun',
+        '__aeabi_ui2d', '__aeabi_i2d', '__aeabi_d2iz', '__aeabi_d2uiz',
+        '__aeabi_l2d', '__aeabi_ul2d', '__aeabi_d2lz', '__aeabi_d2ulz',
+        '__aeabi_d2f',
+        'sqrt', 'cos', 'sin', 'tan', 'atan2', 'exp', 'log',
+    ]
+    for w in double_wraplist:
         bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]

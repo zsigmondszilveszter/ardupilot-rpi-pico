@@ -30,7 +30,7 @@ void usb_initialise(void);
 
 class Rp2040ChibiOS::UsbSerialDriver : public AP_HAL::UARTDriver {
 public:
-    UsbSerialDriver(SerialUSBDriver* sdu, volatile bool* dtr);
+    UsbSerialDriver(SerialUSBDriver* sdu);
 
     void writeThread(void);
     void readThread(void);
@@ -38,6 +38,10 @@ public:
     /* rp2040 implementations of UARTDriver virtual methods */
     bool is_initialized() override;
     bool tx_pending() override;
+
+    uint32_t bw_in_bytes_per_second() const override {
+        return 200*1024;
+    }
 
     /* rp2040 implementations of BetterStream virtual methods */
     uint32_t txspace() override;
@@ -72,5 +76,4 @@ protected:
 
 private:
     SerialUSBDriver*  _sdu;
-    volatile bool*    _dtr;
 };

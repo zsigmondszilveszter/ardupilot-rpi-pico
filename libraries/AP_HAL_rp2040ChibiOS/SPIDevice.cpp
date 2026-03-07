@@ -313,10 +313,6 @@ bool SPIDevice::acquire_bus(bool set, bool skip_cs)
         if (scr > 255U) scr = 255U;
         bus.spicfg.SSPCR0 = SPI_SSPCR0_DSS_8BIT | SPI_SSPCR0_SCR(scr);
         bus.spicfg.SSPCPSR = cpsr;
-        if (bus.spi_started) {
-            spiStop(spi_devices[device_desc.bus].driver);
-            bus.spi_started = false;
-        }
         spiStart(spi_devices[device_desc.bus].driver, &bus.spicfg);        /* Setup transfer parameters.       */
         bus.spi_started = true;
         if(!skip_cs) {

@@ -29,6 +29,10 @@
 const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 
 static AP_BoardConfig board_config;
+#if HAL_LOGGING_ENABLED
+#include <AP_Logger/AP_Logger.h>
+static AP_Logger logger;
+#endif
 
 class DummyVehicle {
 public:

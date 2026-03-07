@@ -42,6 +42,7 @@ protected:
     SIOConfig _uart_config;
     int8_t _serial_num = -1;
     bool initialized_flag = false;
+    volatile bool _restart_pending = false;
     uint tx_pin;
     uint rx_pin;
     // software FIFO buffers

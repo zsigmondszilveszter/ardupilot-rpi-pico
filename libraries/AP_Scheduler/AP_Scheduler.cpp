@@ -40,10 +40,12 @@
 #endif
 #include <stdio.h>
 
+#ifndef SCHEDULER_DEFAULT_LOOP_RATE
 #if APM_BUILD_COPTER_OR_HELI || APM_BUILD_TYPE(APM_BUILD_ArduSub)
 #define SCHEDULER_DEFAULT_LOOP_RATE 400
 #else
 #define SCHEDULER_DEFAULT_LOOP_RATE  50
+#endif
 #endif
 
 #define debug(level, fmt, args...)   do { if ((level) <= _debug.get()) { hal.console->printf(fmt, ##args); }} while (0)
@@ -416,8 +418,44 @@ void AP_Scheduler::loop()
 
     // check loop time
     perf_info.check_loop_time(sample_time_us - _loop_timer_start_us);
-        
+
     _loop_timer_start_us = sample_time_us;
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS && RP2040_SCHEDULER_PERF_DUMP
+    // periodic per-task timing dump to debug console
+    if (!perf_info.has_task_info()) {
+        perf_info.allocate_task_info(_num_tasks);
+    }
+    static uint16_t _console_dump_counter;
+    if (++_console_dump_counter >= 200) {
+        _console_dump_counter = 0;
+        hal.console->printf("--- task profile (us) ---\n");
+        uint8_t vi = 0, ci = 0;
+        for (uint8_t i = 0; i < _num_tasks; i++) {
+            // mirror the priority-merge order used in run()
+            const Task* t;
+            if (vi < _num_vehicle_tasks && ci < _num_common_tasks) {
+                t = (_vehicle_tasks[vi].priority <= _common_tasks[ci].priority)
+                    ? &_vehicle_tasks[vi++] : &_common_tasks[ci++];
+            } else if (vi < _num_vehicle_tasks) {
+                t = &_vehicle_tasks[vi++];
+            } else {
+                t = &_common_tasks[ci++];
+            }
+            const AP::PerfInfo::TaskInfo* ti = perf_info.get_task_info(i);
+            if (ti == nullptr || ti->tick_count == 0) {
+                continue;
+            }
+            hal.console->printf("%-20s avg=%4u max=%4u ovr=%u\n",
+                t->name,
+                (unsigned)(ti->elapsed_time_us / ti->tick_count),
+                (unsigned)ti->max_time_us,
+                (unsigned)ti->overrun_count);
+        }
+        hal.console->printf("--- loop avg=%luus ---\n",
+            (unsigned long)(perf_info.get_avg_time()));
+    }
+#endif
 
 #if AP_SIM_ENABLED && CONFIG_HAL_BOARD != HAL_BOARD_SITL
     hal.simstate->update();

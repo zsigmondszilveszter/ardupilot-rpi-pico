@@ -17,6 +17,10 @@
 
 #include "hal.h"
 
+/* RP2040 ROM floating-point table initialisation (replaces libgcc soft-float) */
+extern void __aeabi_float_init(void);
+extern void __aeabi_double_init(void);
+
 /*===========================================================================*/
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
@@ -47,11 +51,15 @@
  *          else.
  */
 void __early_init(void) {
-
 //  rp_gpio_init();
 }
 
 void __late_init(void) {
+  /* Initialise ROM float table here, not in __early_init:
+   * __early_init runs before .bss is zeroed, so sf_table (which lives in
+   * .bss) would be wiped out immediately after being filled. */
+  __aeabi_float_init();
+  __aeabi_double_init();
   halInit();
   chSysInit();
 }
