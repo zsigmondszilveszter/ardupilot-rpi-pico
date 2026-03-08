@@ -229,8 +229,24 @@ void Rp2040ChibiOS::UARTDriver::clearTxFIFO() {
 size_t Rp2040ChibiOS::UARTDriver::_write(const uint8_t *buffer, size_t size) {
     if (!is_initialized()) return 0;
 
-    WITH_SEMAPHORE(_txUartMutex);
-    return txFIFO.write(buffer, size);
+    size_t written;
+    {
+        WITH_SEMAPHORE(_txUartMutex);
+        written = txFIFO.write(buffer, size);
+    }
+    if (written > 0) {
+        _txWakeSem.signal();
+    }
+    return written;
+}
+
+void Rp2040ChibiOS::UARTDriver::_sio_rx_callback(SIODriver *siop)
+{
+    UARTDriver *uart = (UARTDriver *)siop->arg;
+    sioevents_t events = sioGetAndClearEventsX(siop);
+    if (events & SIO_EV_RXNOTEMPY) {
+        uart->_rxWakeSem.signal_ISR();
+    }
 }
 
 void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
@@ -239,6 +255,9 @@ void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
     // sioStart here so the UART IRQ is registered on core1's NVIC,
     // keeping all SIO driver access on the same core.
     sioStart(uart->uart_driver_inst, &uart->_uart_config);
+    uart->uart_driver_inst->arg = uart;
+    sioSetCallbackX(uart->uart_driver_inst, _sio_rx_callback);
+    sioSetEnableFlags(uart->uart_driver_inst, SIO_EV_RXNOTEMPY);
     uart->initialized_flag = true;
 
     // add the number of uart interface to the name of thread
@@ -250,10 +269,13 @@ void Rp2040ChibiOS::UARTDriver::_uart_write_thread(void *arg)
         if (uart->_restart_pending) {
             sioStop(uart->uart_driver_inst);
             sioStart(uart->uart_driver_inst, &uart->_uart_config);
+            uart->uart_driver_inst->arg = uart;
+            sioSetCallbackX(uart->uart_driver_inst, _sio_rx_callback);
+            sioSetEnableFlags(uart->uart_driver_inst, SIO_EV_RXNOTEMPY);
             uart->_restart_pending = false;
         }
+        uart->_txWakeSem.wait(5000);
         uart->flush();
-        hal.scheduler->delay_microseconds(1000);
     }
 }
 
@@ -269,7 +291,7 @@ void Rp2040ChibiOS::UARTDriver::_uart_read_thread(void *arg)
     }
 
     while (true) {
+        uart->_rxWakeSem.wait(5000);
         uart->async_read();
-        hal.scheduler->delay_microseconds(1000);
     }
 }

@@ -3,6 +3,7 @@
 #include "AP_HAL_rp2040ChibiOS.h"
 #include "hal.h"
 #include <AP_HAL/utility/RingBuffer.h>
+#include "Semaphores.h"
 
 #define RP2040_UART_MAX_ALLOWED_BUFFER_SIZE 1024
 
@@ -51,9 +52,12 @@ protected:
     HAL_Semaphore _uartMutex;
     HAL_Semaphore _txUartMutex;
     HAL_Semaphore _rxUartMutex;
+    Rp2040ChibiOS::BinarySemaphore _txWakeSem{false};
+    Rp2040ChibiOS::BinarySemaphore _rxWakeSem{false};
 
     thread_t* _uart_write_thread_ctx;
     thread_t* _uart_read_thread_ctx;
     static void _uart_write_thread(void *arg);
     static void _uart_read_thread(void *arg);
+    static void _sio_rx_callback(SIODriver *siop);
 };

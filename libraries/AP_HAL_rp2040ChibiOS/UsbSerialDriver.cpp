@@ -7,6 +7,20 @@
 
 extern const AP_HAL::HAL& hal;
 
+#define MAX_USB_SERIAL_INSTANCES 2
+static Rp2040ChibiOS::UsbSerialDriver* _usb_instances[MAX_USB_SERIAL_INSTANCES];
+static uint8_t _usb_instance_count = 0;
+
+extern "C" void usb_sof_notify(void) {
+    for (uint8_t i = 0; i < _usb_instance_count; i++) {
+        _usb_instances[i]->sof_notify();
+    }
+}
+
+void Rp2040ChibiOS::UsbSerialDriver::sof_notify(void) {
+    _rxWakeSem.signal_ISR();
+}
+
 /*
   initialise the USB bus, called from both UARTDriver and stdio for startup debug
   This can be called before the hal is initialised so must not call any hal functions
@@ -100,6 +114,17 @@ void Rp2040ChibiOS::UsbSerialDriver::_begin(uint32_t b, uint16_t rxS, uint16_t t
     }
     writeThread();
     readThread();
+    // register for SOF notifications (only once per instance)
+    bool already_registered = false;
+    for (uint8_t i = 0; i < _usb_instance_count; i++) {
+        if (_usb_instances[i] == this) {
+            already_registered = true;
+            break;
+        }
+    }
+    if (!already_registered && _usb_instance_count < MAX_USB_SERIAL_INSTANCES) {
+        _usb_instances[_usb_instance_count++] = this;
+    }
     initialized_flag = true;
 }
 
@@ -233,8 +258,15 @@ void Rp2040ChibiOS::UsbSerialDriver::clearTxFIFO() {
 size_t Rp2040ChibiOS::UsbSerialDriver::_write(const uint8_t *buffer, size_t size) {
     if (!is_initialized()) return 0;
 
-    WITH_SEMAPHORE(_txUsbMutex);
-    return txFIFO.write(buffer, size);
+    size_t written;
+    {
+        WITH_SEMAPHORE(_txUsbMutex);
+        written = txFIFO.write(buffer, size);
+    }
+    if (written > 0) {
+        _txWakeSem.signal();
+    }
+    return written;
 }
 
 void Rp2040ChibiOS::UsbSerialDriver::_usb_cdc_write_thread(void *arg)
@@ -243,8 +275,8 @@ void Rp2040ChibiOS::UsbSerialDriver::_usb_cdc_write_thread(void *arg)
     chRegSetThreadName("usb_cdc_write_thread");
 
     while (true) {
+        driver->_txWakeSem.wait(5000);
         driver->flush();
-        hal.scheduler->delay_microseconds(1000);
     }
 }
 
@@ -254,7 +286,7 @@ void Rp2040ChibiOS::UsbSerialDriver::_usb_cdc_read_thread(void *arg)
     chRegSetThreadName("usb_cdc_read_thread");
 
     while (true) {
+        driver->_rxWakeSem.wait(5000);
         driver->async_read();
-        hal.scheduler->delay_microseconds(1000);
     }
 }

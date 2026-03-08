@@ -18,6 +18,8 @@
 
 #include "hal.h"
 
+extern void usb_sof_notify(void);
+
 /*
  * Virtual serial ports over USB.
  */
@@ -396,6 +398,7 @@ static void sof_handler(USBDriver *usbp) {
   sduSOFHookI(&SDU1);
   sduSOFHookI(&SDU2);
   osalSysUnlockFromISR();
+  usb_sof_notify();
 }
 
 static bool requests_hook(USBDriver *usbp) {
