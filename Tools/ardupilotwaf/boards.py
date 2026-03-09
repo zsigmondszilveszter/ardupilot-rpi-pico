@@ -610,20 +610,20 @@ def add_dynamic_boards_esp32():
             else:
                 newclass = type(d, (esp32,), {'name': d})
 
-def add_dynamic_boards_rp2040ChibiOS():
+def add_dynamic_boards_rp2xxxChibiOS():
     '''add boards based on existance of hwdef.dat in subdirectories for RP2040 ChibiOS'''
-    dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_rp2040ChibiOS/hwdef'))
+    dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_rp2xxxChibiOS/hwdef'))
     for d in dirlist:
         if d in _board_classes.keys():
             continue
         hwdef = os.path.join(dirname, d, 'hwdef.dat')
         if os.path.exists(hwdef):
-            newclass = type(d, (rp2040ChibiOS,), {'name': d})
+            newclass = type(d, (rp2xxxChibiOS,), {'name': d})
 
 def get_boards_names():
     add_dynamic_boards_chibios()
     add_dynamic_boards_esp32()
-    add_dynamic_boards_rp2040ChibiOS()
+    add_dynamic_boards_rp2xxxChibiOS()
 
     return sorted(list(_board_classes.keys()), key=str.lower)
 
@@ -1087,27 +1087,27 @@ class esp32(Board):
     def get_name(self):
         return self.__class__.__name__
 
-class rp2040ChibiOS(Board):
+class rp2xxxChibiOS(Board):
     abstract = True
     toolchain = 'arm-none-eabi'
 
     def configure_env(self, cfg, env):
         # if hasattr(self, 'hwdef'):
         #     cfg.env.HWDEF = self.hwdef
-        super(rp2040ChibiOS, self).configure_env(cfg, env)
+        super(rp2xxxChibiOS, self).configure_env(cfg, env)
 
         cfg.load('rp2040')
         env.BOARD = self.name
 
         env.DEFINES.update(
-            CONFIG_HAL_BOARD = 'HAL_BOARD_RP2040CHIBIOS',
+            CONFIG_HAL_BOARD = 'HAL_BOARD_RP2xxxCHIBIOS',
             AP_SIM_ENABLED = 0,
             HAVE_STD_NULLPTR_T = 0,
             USE_LIBC_REALLOC = 0,
         )
 
         env.AP_LIBRARIES += [
-            'AP_HAL_rp2040ChibiOS',
+            'AP_HAL_rp2xxxChibiOS',
         ]
 
         cfg.env.CPU_FLAGS = [
@@ -1178,7 +1178,7 @@ class rp2040ChibiOS(Board):
         cfg.env.MAIN_STACK = "0x400"
 
 
-        bldnode = cfg.bldnode.make_node("rp2040ChibiOS")
+        bldnode = cfg.bldnode.make_node("rp2xxxChibiOS")
         env.BUILDROOT = bldnode.make_node('').abspath()
         env.LINKFLAGS = cfg.env.CPU_FLAGS + [
             '-fomit-frame-pointer',
@@ -1199,7 +1199,7 @@ class rp2040ChibiOS(Board):
             '--specs=nano.specs',
             '--specs=nosys.specs',
             '-L%s' % env.BUILDROOT,
-            '-L%s' % cfg.srcnode.make_node('modules/rp2040ChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
+            '-L%s' % cfg.srcnode.make_node('modules/rp2xxxChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
             '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=RP2040_FLASH.ld,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
         ]
 
@@ -1279,7 +1279,7 @@ class rp2040ChibiOS(Board):
 
     def build(self, bld):
         
-        super(rp2040ChibiOS, self).build(bld)
+        super(rp2xxxChibiOS, self).build(bld)
         bld.load('rp2040')
         
         # Avoid infinite recursion
@@ -1287,7 +1287,7 @@ class rp2040ChibiOS(Board):
 
     def pre_build(self, bld):
         '''pre-build hook that gets called before dynamic sources'''
-        super(rp2040ChibiOS, self).pre_build(bld)
+        super(rp2xxxChibiOS, self).pre_build(bld)
 
     def get_name(self):
         return self.__class__.__name__

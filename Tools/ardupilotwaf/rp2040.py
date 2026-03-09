@@ -10,7 +10,7 @@ import re
 
 _dynamic_env_data = {}
 def _load_dynamic_env_data(bld):
-    bldnode = bld.bldnode.make_node('modules/rp2040ChibiOS')
+    bldnode = bld.bldnode.make_node('modules/rp2xxxChibiOS')
     tmp_str = bldnode.find_node('include_dirs').read()
     tmp_str = tmp_str.replace(';\n','')
     tmp_str = tmp_str.replace('-I','')  #remove existing -I flags
@@ -113,10 +113,10 @@ def configureChibiOS(cfg):
     kw = env.AP_LIBRARIES_OBJECTS_KW
     kw['features'] = to_list(kw.get('features', [])) + ['ch_ap_library']
 
-    env.CH_ROOT = srcpath('modules/rp2040ChibiOS')
+    env.CH_ROOT = srcpath('modules/rp2xxxChibiOS')
     # env.CC_ROOT = srcpath('modules/CrashDebug/CrashCatcher')
-    env.AP_HAL_ROOT = srcpath('libraries/AP_HAL_rp2040ChibiOS')
-    env.BUILDDIR = bldpath('modules/rp2040ChibiOS')
+    env.AP_HAL_ROOT = srcpath('libraries/AP_HAL_rp2xxxChibiOS')
+    env.BUILDDIR = bldpath('modules/rp2xxxChibiOS')
     env.BUILDROOT = bldpath('')
     env.SRCROOT = srcpath('')
     env.MKFW_TOOLS = srcpath('Tools/ardupilotwaf')
@@ -127,8 +127,8 @@ def configureChibiOS(cfg):
     env.AP_HAL_REL = os.path.relpath(env.AP_HAL_ROOT, env.BUILDROOT)
     env.BUILDDIR_REL = os.path.relpath(env.BUILDDIR, env.BUILDROOT)
 
-    mk_custom = srcpath('libraries/AP_HAL_rp2040ChibiOS/hwdef/%s/chibios_board.mk' % env.BOARD)
-    mk_common = srcpath('libraries/AP_HAL_rp2040ChibiOS/hwdef/common/chibios_board.mk')
+    mk_custom = srcpath('libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/chibios_board.mk' % env.BOARD)
+    mk_common = srcpath('libraries/AP_HAL_rp2xxxChibiOS/hwdef/common/chibios_board.mk')
     # see if there is a board specific make file
     if os.path.exists(mk_custom):
         env.BOARD_MK = mk_custom
@@ -163,14 +163,14 @@ def buildChibiOS(bld):
         rule="touch Makefile && BUILDDIR=${BUILDDIR_REL} CHIBIOS=${CH_ROOT_REL} " + 
             "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${MAKE} pass -f '${BOARD_MK}'",
         group='dynamic_sources',
-        target=bld.bldnode.find_or_declare('modules/rp2040ChibiOS/include_dirs')
+        target=bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/include_dirs')
     )
 
     common_src = [
-        bld.bldnode.find_or_declare('modules/rp2040ChibiOS/include_dirs')
+        bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/include_dirs')
     ]
-    common_src += bld.path.ant_glob('modules/rp2040ChibiOS/os/hal/**/*.[ch]')
-    common_src += bld.path.ant_glob('modules/rp2040ChibiOS/os/hal/**/*.mk')
+    common_src += bld.path.ant_glob('modules/rp2xxxChibiOS/os/hal/**/*.[ch]')
+    common_src += bld.path.ant_glob('modules/rp2xxxChibiOS/os/hal/**/*.mk')
 
     if bld.env.ENABLE_CRASHDUMP:
         # TODO(szilveszter)
@@ -183,15 +183,15 @@ def buildChibiOS(bld):
                 "'${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
             group='dynamic_sources',
             source=common_src,
-            target=bld.bldnode.find_or_declare('modules/rp2040ChibiOS/libch.a')
+            target=bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/libch.a')
         )
 
     
     ch_task.name = "ChibiOS_lib"
     bld.env.LIB += ['ch']
-    bld.env.LIBPATH += ['modules/rp2040ChibiOS/']
+    bld.env.LIBPATH += ['modules/rp2xxxChibiOS/']
     if bld.env.ENABLE_CRASHDUMP:
-        bld.env.LINKFLAGS += ['-Wl,-whole-archive', 'modules/rp2040ChibiOS/libcc.a', '-Wl,-no-whole-archive']
+        bld.env.LINKFLAGS += ['-Wl,-whole-archive', 'modules/rp2xxxChibiOS/libcc.a', '-Wl,-no-whole-archive']
     # list of functions that will be wrapped to move them out of libc into our
     # own code note that we also include functions that we deliberately don't
     # implement anywhere (the FILE* functions). This allows us to get link

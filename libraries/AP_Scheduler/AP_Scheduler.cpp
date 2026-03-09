@@ -421,7 +421,7 @@ void AP_Scheduler::loop()
 
     _loop_timer_start_us = sample_time_us;
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS && RP2040_SCHEDULER_PERF_DUMP
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2xxxCHIBIOS && RP2xxx_SCHEDULER_PERF_DUMP
     // periodic per-task timing dump to debug console
     if (!perf_info.has_task_info()) {
         perf_info.allocate_task_info(_num_tasks);

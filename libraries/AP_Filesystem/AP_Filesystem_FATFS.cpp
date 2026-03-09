@@ -15,9 +15,9 @@
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
 #include <AP_HAL_ChibiOS/sdcard.h>
 #include <AP_HAL_ChibiOS/hwdef/common/stm32_util.h>
-#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
-#include <AP_HAL_rp2040ChibiOS/sdcard.h>
-#include <AP_HAL_rp2040ChibiOS/hwdef/common/rp2xxx_util.h>
+#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2xxxCHIBIOS
+#include <AP_HAL_rp2xxxChibiOS/sdcard.h>
+#include <AP_HAL_rp2xxxChibiOS/hwdef/common/rp2xxx_util.h>
 #endif
 #include <GCS_MAVLink/GCS.h>
 

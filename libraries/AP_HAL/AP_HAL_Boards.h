@@ -15,7 +15,7 @@
 // #define HAL_BOARD_F4LIGHT  11 // reserved
 #define HAL_BOARD_ESP32	   12
 #define HAL_BOARD_QURT     13
-#define HAL_BOARD_RP2040CHIBIOS  14
+#define HAL_BOARD_RP2xxxCHIBIOS  14
 #define HAL_BOARD_EMPTY    99
 
 /* Default board subtype is -1 */
@@ -139,8 +139,8 @@
 	#include <AP_HAL/board/chibios.h>
 #elif CONFIG_HAL_BOARD == HAL_BOARD_ESP32
     #include <AP_HAL/board/esp32.h>
-#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2040CHIBIOS
-    #include <AP_HAL/board/rp2040chibios.h>
+#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2xxxCHIBIOS
+    #include <AP_HAL/board/rp2xxxchibios.h>
 #elif CONFIG_HAL_BOARD == HAL_BOARD_QURT
     #include <AP_HAL/board/qurt.h>
 #else

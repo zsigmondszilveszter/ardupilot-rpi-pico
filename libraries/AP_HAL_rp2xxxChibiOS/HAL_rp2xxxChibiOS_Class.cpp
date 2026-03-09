@@ -1,0 +1,198 @@
+#include <AP_HAL/AP_HAL.h>
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2xxxCHIBIOS
+
+#include <hal.h>
+#include <ch.h>
+
+#include <assert.h>
+
+#include "HAL_rp2xxxChibiOS_Class.h"
+#include "AP_HAL_rp2xxxChibiOS_Private.h"
+
+#include <AP_BoardConfig/AP_BoardConfig.h>
+#include <AP_InternalError/AP_InternalError.h>
+#ifndef HAL_BOOTLOADER_BUILD
+#include <AP_Logger/AP_Logger.h>
+#endif
+#include <AP_Filesystem/AP_Filesystem.h>
+#include <AP_Vehicle/AP_Vehicle_Type.h>
+
+
+using namespace Rp2xxxChibiOS;
+
+static Rp2xxxChibiOS::UsbSerialDriver usb_mavlink_serial(&SDU1);
+static Rp2xxxChibiOS::UsbSerialDriver usb_debug_console(&SDU2);
+static Rp2xxxChibiOS::UARTDriver uartADriver(0); // UART 0
+//static Rp2xxxChibiOS::UARTDriver uartBDriver(1); // UART 1
+static I2CDeviceManager i2cDeviceManager;
+static SPIDeviceManager spiDeviceManager;
+static AnalogIn analogIn;
+static Storage storageDriver;
+static GPIO gpioDriver;
+static RCInput rcinDriver{RCInput::RCProtocol::RP2xxx_RC_PROTOCOL};
+ static RCOutput rcoutDriver;
+static Rp2xxxChibiOS::Scheduler schedulerInstance;
+static Rp2xxxChibiOS::Util utilInstance;
+// static OpticalFlow opticalFlowDriver;
+// static Flash flashDriver;
+
+HAL_Rp2xxxChibiOS::HAL_Rp2xxxChibiOS() :
+    AP_HAL::HAL(
+        &usb_mavlink_serial,    /* serial(0) */
+        nullptr, //&uartBDriver,
+        nullptr, //&uartCDriver,
+        &uartADriver,            /* no uartD */
+        nullptr,            /* no uartE */
+        nullptr, //&uartFDriver, //rcin
+        nullptr,            /* no uartG */
+        nullptr,            /* no uartH */
+        nullptr,            /* no uartI */
+        nullptr,            /* no uartJ*/
+        &i2cDeviceManager,
+        &spiDeviceManager,
+        nullptr,// $qspiDeviceManager,
+        &analogIn,
+        &storageDriver,
+        &usb_debug_console,     /* console */
+        &gpioDriver,
+        &rcinDriver,
+        &rcoutDriver,
+        &schedulerInstance,
+        &utilInstance,
+        nullptr,// &opticalFlowDriver,
+        nullptr,// &flashDriver,
+        nullptr, /* no DSP */
+        nullptr)    // no CAN
+{}
+
+static bool core_1_started = false;
+static bool thread_running = false;        /**< Daemon status flag */
+static thread_t* daemon_task;              /**< Handle of daemon task / thread */
+extern const AP_HAL::HAL& hal;
+semaphore_t core_sync_sem = __SEMAPHORE_DATA(core_sync_sem, 0);
+
+/*
+  set the priority of the main APM task
+ */
+void hal_chibios_set_priority(uint8_t priority)
+{
+    chSysLock();
+#if CH_CFG_USE_MUTEXES == TRUE
+    if ((daemon_task->hdr.pqueue.prio == daemon_task->realprio) || (priority > daemon_task->hdr.pqueue.prio)) {
+      daemon_task->hdr.pqueue.prio = priority;
+    }
+    daemon_task->realprio = priority;
+#endif
+    chSchRescheduleS();
+    chSysUnlock();
+}
+
+thread_t* get_main_thread()
+{
+    return daemon_task;
+}
+
+void HAL_Rp2xxxChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) const
+{
+    daemon_task = chThdGetSelfX();
+
+    /*
+      switch to high priority for main loop
+     */
+    chThdSetPriority(APM_MAIN_PRIORITY);
+
+    // Wait until core1 and the USB console is initialized
+    chSemWait(&core_sync_sem);
+
+    /* initialize all drivers and private members here.
+     * up to the programmer to do this in the correct order.
+     * Scheduler should likely come first. */
+    hal.scheduler->init();
+    hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (the first ACM is the serial0, if no other ACM device is connected))
+    hal.gpio->init();
+    hal.rcout->init();
+
+     /*
+      run setup() at low priority to ensure CLI doesn't hang the
+      system, and to allow initial sensor read loops to run
+     */
+    hal_chibios_set_priority(APM_STARTUP_PRIORITY);
+
+    schedulerInstance.hal_initialized();
+    
+    #if defined(HAVE_FILESYSTEM_SUPPORT)
+        AP::FS().retry_mount();
+    #endif
+    
+    callbacks->setup();
+    schedulerInstance.set_system_initialized();
+
+    thread_running = true;
+    
+    #if !defined(DISABLE_WATCHDOG)
+        // setup watchdog to reset if main loop stops
+        if (AP_BoardConfig::watchdog_enabled()) {
+            wdgStart(&WDGD1, &wdgcfg);
+        }
+    
+        if (hal.util->was_watchdog_reset()) {
+            INTERNAL_ERROR(AP_InternalError::error_t::watchdog_reset);
+        }
+    #endif // DISABLE_WATCHDOG
+    
+    /*
+      switch to high priority for main loop
+     */
+    chThdSetPriority(APM_MAIN_PRIORITY);
+
+    for (;;) {
+        callbacks->loop();
+        /*
+          give up 50 microseconds of time if the INS loop hasn't
+          called delay_microseconds_boost(), to ensure low priority
+          drivers get a chance to run. Calling
+          delay_microseconds_boost() means we have already given up
+          time from the main loop, so we don't need to do it again
+          here
+         */
+#if !defined(HAL_DISABLE_LOOP_DELAY) && !APM_BUILD_TYPE(APM_BUILD_Replay)
+        if (!schedulerInstance.check_called_boost()) {
+            hal.scheduler->delay_microseconds(50);
+        }
+#endif
+        schedulerInstance.watchdog_pat();
+    }
+    thread_running = false;
+}
+
+const AP_HAL::HAL& AP_HAL::get_HAL() {
+    static const HAL_Rp2xxxChibiOS halRp2xxxChibiOS;
+    return halRp2xxxChibiOS;
+}
+
+// main function for core 1 (the second rp core)
+extern "C" {
+    int c1_main(void);
+    int c1_main(void) {
+        chSysWaitSystemState(ch_sys_running);
+        chInstanceObjectInit(&ch1, &ch_core1_cfg);
+
+        /* It is alive now. */
+        chSysUnlock();
+
+        usb_initialise();
+
+        core_1_started = true;
+        chSemSignal(&core_sync_sem);
+
+        chThdSetPriority(LOWPRIO);
+
+        while(true) {
+            hal.scheduler->delay_microseconds(1000);
+        }
+        return 0;
+    }
+}
+
+#endif
