@@ -10,6 +10,16 @@
 
 #include "ardupilot_board_config.h"
 
+#ifdef __FASTRAMFUNC__
+#undef __FASTRAMFUNC__
+#endif
+#define __FASTRAMFUNC__ __attribute__((section(".fastramfunc")))
+
+#ifdef __RAMFUNC__
+#undef __RAMFUNC__
+#endif
+#define __RAMFUNC__ __attribute__((section(".ramfunc")))
+
 #define HAL_BOARD_LOG_DIRECTORY				"/APM/LOGS"
 #define HAL_BOARD_STORAGE_DIRECTORY			"/APM/STORAGE"
 #define HAL_BOARD_TERRAIN_DIRECTORY			"/APM/TERRAIN"

@@ -14,7 +14,14 @@ include $(CHIBIOS)/os/hal/ports/RP/RP2040/platform.mk
 include $(CHIBIOS)/os/common/ports/ARMv6-M/compilers/GCC/mk/port_rp2.mk
 
 # Linker script file.
-LDSCRIPT = $(STARTUPLD)/RP2040_FLASH.ld
+LDSCRIPT = $(BOARDDIR)/RP2040_FLASH.ld
+
+# Trim EKF3 features that are enabled by generic "large flash" heuristics but
+# are unlikely to be needed on this minimal Copter target. This reduces code
+# size and hot-path pressure in the AHRS/EKF update loop.
+UDEFS += -DEK3_FEATURE_BODY_ODOM=0
+UDEFS += -DEK3_FEATURE_EXTERNAL_NAV=0
+UDEFS += -DEK3_FEATURE_DRAG_FUSION=0
 
 # RP2040 ROM floating-point shims: software-float calls routed through RP2040 ROM.
 ALLCSRC += $(BOARDDIR)/board.c

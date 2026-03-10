@@ -4,7 +4,7 @@
  * Board-specific ArduPilot policy overrides for the RP2040 Pico target.
  */
 
-#define SCHEDULER_DEFAULT_LOOP_RATE 50
+#define SCHEDULER_DEFAULT_LOOP_RATE 75
 #define HAL_AHRS_EKF_TYPE_DEFAULT 3
 #define HAL_EKF_IMU_MASK_DEFAULT 1
 #define HAL_DEFAULT_INS_FAST_SAMPLE 0
@@ -22,3 +22,34 @@
 #define AP_GRIPPER_ENABLED 0
 #define AP_AIS_ENABLED 0
 #define AP_SCRIPTING_ENABLED 0
+
+/*
+ * RP2040 is treated as a minimal multicopter target. Strip optional sensors,
+ * payload features, and niche modes first, while keeping the core GPS/EKF
+ * Copter stack intact.
+ */
+#define AP_RANGEFINDER_ENABLED 0
+#define AP_OPTICALFLOW_ENABLED 0
+#define AC_PRECLAND_ENABLED 0
+#define AP_RPM_ENABLED 0
+#define HAL_EFI_ENABLED 0
+#define HAL_NMEA_OUTPUT_ENABLED 0
+#define HAL_RUNCAM_ENABLED 0
+#define HAL_SPRAYER_ENABLED 0
+#define AP_LANDINGGEAR_ENABLED 0
+#define AP_FENCE_ENABLED 0
+#define OSD_ENABLED 0
+#define OSD_PARAM_ENABLED 0
+#define HAL_DISPLAY_ENABLED 0
+#define HAL_MSP_ENABLED 0
+#define HAL_MSP_SENSORS_ENABLED 0
+#define HAL_WITH_MSP_DISPLAYPORT 0
+#define MODE_SMARTRTL_ENABLED 0
+#define MODE_FLOWHOLD_ENABLED 0
+#define MODE_ZIGZAG_ENABLED 0
+#define MODE_FOLLOW_ENABLED 0
+#define MODE_GUIDED_NOGPS_ENABLED 0
+#define MODE_SYSTEMID_ENABLED 0
+#define MODE_TURTLE_ENABLED 0
+#define MODE_SPORT_ENABLED 0
+#define MODE_FLIP_ENABLED 0

@@ -1180,6 +1180,8 @@ class rp2xxxChibiOS(Board):
 
         bldnode = cfg.bldnode.make_node("rp2xxxChibiOS")
         env.BUILDROOT = bldnode.make_node('').abspath()
+        rp_hwdef_common = cfg.srcnode.make_node('libraries/AP_HAL_rp2xxxChibiOS/hwdef/common').abspath()
+        rp_hwdef_board = cfg.srcnode.make_node('libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s' % env.BOARD).abspath()
         env.LINKFLAGS = cfg.env.CPU_FLAGS + [
             '-fomit-frame-pointer',
             '-falign-functions=16',
@@ -1199,6 +1201,8 @@ class rp2xxxChibiOS(Board):
             '--specs=nano.specs',
             '--specs=nosys.specs',
             '-L%s' % env.BUILDROOT,
+            '-L%s' % rp_hwdef_board,
+            '-L%s' % rp_hwdef_common,
             '-L%s' % cfg.srcnode.make_node('modules/rp2xxxChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
             '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=%s,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.RP_LDSCRIPT, cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
         ]
@@ -1301,7 +1305,9 @@ class rp2040ChibiOS(rp2xxxChibiOS):
             "-mfloat-abi=soft",
         ]
         cfg.env.RP_MCU = "rp2040"
-        cfg.env.RP_LDSCRIPT = "RP2040_FLASH.ld"
+        cfg.env.RP_LDSCRIPT = cfg.srcnode.make_node(
+            'libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/RP2040_FLASH.ld' % self.name
+        ).abspath()
         super(rp2040ChibiOS, self).configure_env(cfg, env)
 
 class rp2350ChibiOS(rp2xxxChibiOS):
@@ -1313,7 +1319,9 @@ class rp2350ChibiOS(rp2xxxChibiOS):
             "-mfloat-abi=softfp",
         ]
         cfg.env.RP_MCU = "rp2350"
-        cfg.env.RP_LDSCRIPT = "RP2350_FLASH.ld"
+        cfg.env.RP_LDSCRIPT = cfg.srcnode.make_node(
+            'libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/RP2350_FLASH.ld' % self.name
+        ).abspath()
         super(rp2350ChibiOS, self).configure_env(cfg, env)
 
 class esp32s3(esp32):

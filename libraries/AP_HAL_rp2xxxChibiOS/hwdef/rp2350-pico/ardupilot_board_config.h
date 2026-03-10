@@ -4,7 +4,7 @@
  * Board-specific ArduPilot policy overrides for the RP2350 Pico target.
  */
 
-#define SCHEDULER_DEFAULT_LOOP_RATE 75
+#define SCHEDULER_DEFAULT_LOOP_RATE 125
 #define HAL_AHRS_EKF_TYPE_DEFAULT 3
 #define HAL_EKF_IMU_MASK_DEFAULT 1
 #define HAL_DEFAULT_INS_FAST_SAMPLE 0
