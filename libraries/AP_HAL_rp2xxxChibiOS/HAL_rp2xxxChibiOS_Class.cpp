@@ -62,7 +62,12 @@ HAL_Rp2xxxChibiOS::HAL_Rp2xxxChibiOS() :
         &utilInstance,
         nullptr,// &opticalFlowDriver,
         nullptr,// &flashDriver,
+#if AP_SIM_ENABLED
+        nullptr, /* no SIMState */
+#endif
+#if HAL_WITH_DSP
         nullptr, /* no DSP */
+#endif
         nullptr)    // no CAN
 {}
 
@@ -189,7 +194,7 @@ extern "C" {
         chThdSetPriority(LOWPRIO);
 
         while(true) {
-            hal.scheduler->delay_microseconds(1000);
+            chThdSleepMilliseconds(1);
         }
         return 0;
     }

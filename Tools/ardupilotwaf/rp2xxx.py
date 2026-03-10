@@ -152,9 +152,16 @@ def build(bld):
     # build ChibiOS
     buildChibiOS(bld)
 
-    bld.env.LDFLAGS += [
-            os.path.join(bld.env.BUILDDIR, 'obj', 'bs2_default_padded_checksummed.o')
-    ]
+    if bld.env.RP_MCU == 'rp2040':
+        # RP2040 stage-2 bootloader object
+        bld.env.LDFLAGS += [
+                os.path.join(bld.env.BUILDDIR, 'obj', 'bs2_default_padded_checksummed.o')
+        ]
+    elif bld.env.RP_MCU == 'rp2350':
+        # RP2350 PICOBIN image definition block (bootrom searches for this to boot)
+        bld.env.LDFLAGS += [
+                os.path.join(bld.env.BUILDDIR, 'obj', 'rp2350_imagedef.o')
+        ]
 
 
 def buildChibiOS(bld):
@@ -206,30 +213,51 @@ def buildChibiOS(bld):
     for w in wraplist:
         bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
 
-    # RP2040 ROM float shim: redirect soft-float calls to ROM-backed routines
-    float_wraplist = [
-        '__aeabi_frsub', '__aeabi_fsub', '__aeabi_fadd', '__aeabi_fdiv', '__aeabi_fmul',
-        '__aeabi_cfrcmple', '__aeabi_cfcmple', '__aeabi_cfcmpeq',
-        '__aeabi_fcmpeq', '__aeabi_fcmplt', '__aeabi_fcmple',
-        '__aeabi_fcmpge', '__aeabi_fcmpgt', '__aeabi_fcmpun',
-        '__aeabi_ui2f', '__aeabi_i2f', '__aeabi_f2iz', '__aeabi_f2uiz',
-        '__aeabi_l2f', '__aeabi_ul2f', '__aeabi_f2lz', '__aeabi_f2ulz',
-        '__aeabi_f2d',
-        'sqrtf', 'cosf', 'sinf', 'sincosf', 'tanf', 'atan2f', 'expf', 'logf',
-    ]
-    for w in float_wraplist:
-        bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
+    if bld.env.RP_MCU == 'rp2040':
+        # RP2040 ROM float shim: redirect soft-float calls to ROM-backed routines
+        float_wraplist = [
+            '__aeabi_frsub', '__aeabi_fsub', '__aeabi_fadd', '__aeabi_fdiv', '__aeabi_fmul',
+            '__aeabi_cfrcmple', '__aeabi_cfcmple', '__aeabi_cfcmpeq',
+            '__aeabi_fcmpeq', '__aeabi_fcmplt', '__aeabi_fcmple',
+            '__aeabi_fcmpge', '__aeabi_fcmpgt', '__aeabi_fcmpun',
+            '__aeabi_ui2f', '__aeabi_i2f', '__aeabi_f2iz', '__aeabi_f2uiz',
+            '__aeabi_l2f', '__aeabi_ul2f', '__aeabi_f2lz', '__aeabi_f2ulz',
+            '__aeabi_f2d',
+            'sqrtf', 'cosf', 'sinf', 'sincosf', 'tanf', 'atan2f', 'expf', 'logf',
+        ]
+        for w in float_wraplist:
+            bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
 
-    # RP2040 ROM double shim: redirect soft-double calls to ROM-backed routines
-    double_wraplist = [
-        '__aeabi_drsub', '__aeabi_dsub', '__aeabi_dadd', '__aeabi_ddiv', '__aeabi_dmul',
-        '__aeabi_cdrcmple', '__aeabi_cdcmple', '__aeabi_cdcmpeq',
-        '__aeabi_dcmpeq', '__aeabi_dcmplt', '__aeabi_dcmple',
-        '__aeabi_dcmpge', '__aeabi_dcmpgt', '__aeabi_dcmpun',
-        '__aeabi_ui2d', '__aeabi_i2d', '__aeabi_d2iz', '__aeabi_d2uiz',
-        '__aeabi_l2d', '__aeabi_ul2d', '__aeabi_d2lz', '__aeabi_d2ulz',
-        '__aeabi_d2f',
-        'sqrt', 'cos', 'sin', 'tan', 'atan2', 'exp', 'log',
-    ]
-    for w in double_wraplist:
-        bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
+        # RP2040 ROM double shim: redirect soft-double calls to ROM-backed routines
+        double_wraplist = [
+            '__aeabi_drsub', '__aeabi_dsub', '__aeabi_dadd', '__aeabi_ddiv', '__aeabi_dmul',
+            '__aeabi_cdrcmple', '__aeabi_cdcmple', '__aeabi_cdcmpeq',
+            '__aeabi_dcmpeq', '__aeabi_dcmplt', '__aeabi_dcmple',
+            '__aeabi_dcmpge', '__aeabi_dcmpgt', '__aeabi_dcmpun',
+            '__aeabi_ui2d', '__aeabi_i2d', '__aeabi_d2iz', '__aeabi_d2uiz',
+            '__aeabi_l2d', '__aeabi_ul2d', '__aeabi_d2lz', '__aeabi_d2ulz',
+            '__aeabi_d2f',
+            'sqrt', 'cos', 'sin', 'tan', 'atan2', 'exp', 'log',
+        ]
+        for w in double_wraplist:
+            bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]
+    elif bld.env.RP_MCU == 'rp2350':
+        # RP2350 DCP double shim: redirect double-precision calls to pico-sdk
+        # wrappers that use the hardware double co-processor where applicable.
+        double_wraplist = [
+            '__aeabi_drsub', '__aeabi_dsub', '__aeabi_dadd', '__aeabi_ddiv', '__aeabi_dmul',
+            '__aeabi_cdrcmple', '__aeabi_cdcmple', '__aeabi_cdcmpeq',
+            '__aeabi_dcmpeq', '__aeabi_dcmplt', '__aeabi_dcmple',
+            '__aeabi_dcmpge', '__aeabi_dcmpgt', '__aeabi_dcmpun',
+            '__aeabi_ui2d', '__aeabi_i2d', '__aeabi_d2iz', '__aeabi_d2uiz',
+            '__aeabi_l2d', '__aeabi_ul2d', '__aeabi_d2lz', '__aeabi_d2ulz',
+            '__aeabi_d2f',
+            'sqrt', 'cos', 'sin', 'tan', 'atan2', 'exp', 'log',
+            'ldexp', 'copysign', 'trunc', 'floor', 'ceil', 'round',
+            'sincos', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+            'asinh', 'acosh', 'atanh', 'exp2', 'log2', 'exp10', 'log10',
+            'pow', 'powint', 'hypot', 'cbrt', 'fmod', 'drem', 'remainder',
+            'remquo', 'expm1', 'log1p', 'fma',
+        ]
+        for w in double_wraplist:
+            bld.env.LINKFLAGS += ['-Wl,--wrap,%s' % w]

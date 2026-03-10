@@ -8,6 +8,8 @@
 #define HAL_NUM_CAN_IFACES 0
 #endif
 
+#include "ardupilot_board_config.h"
+
 #define HAL_BOARD_LOG_DIRECTORY				"/APM/LOGS"
 #define HAL_BOARD_STORAGE_DIRECTORY			"/APM/STORAGE"
 #define HAL_BOARD_TERRAIN_DIRECTORY			"/APM/TERRAIN"
@@ -20,12 +22,24 @@
 #endif
 
 // Scheduler
+#ifndef RP2xxx_SCHEDULER_PERF_DUMP
 #define RP2xxx_SCHEDULER_PERF_DUMP      1   // set to 1 to enable periodic per-task timing dump to console
+#endif
+#ifndef RP2xxx_MAX_TIMER_PROC
 #define RP2xxx_MAX_TIMER_PROC           32
+#endif
+#ifndef RP2xxx_MAX_IO_PROC
 #define RP2xxx_MAX_IO_PROC              32
+#endif
+#ifndef RP2xxx_WATCHDOG_ENABLED
 #define RP2xxx_WATCHDOG_ENABLED         1
+#endif
+#ifndef RP2xxx_WATCHDOG_TIMEOUT
 #define RP2xxx_WATCHDOG_TIMEOUT         2000 // msec
+#endif
+#ifndef SCHEDULER_DEFAULT_LOOP_RATE
 #define SCHEDULER_DEFAULT_LOOP_RATE     50
+#endif
 
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2xxx_WATCHDOG_ENABLED
 
@@ -43,7 +57,9 @@
 #define RP2xxx_SPI_CS_FOR_MPU9250       13U
 #define RP2xxx_SPI_CS_FOR_MPU6500       8U
 #define RP2xxx_SPI_CS_FOR_SDCARD        17U
-#define HAL_DEFAULT_INS_FAST_SAMPLE     0 
+#ifndef HAL_DEFAULT_INS_FAST_SAMPLE
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0
+#endif
 
 // UART
 #define RP2xxx_UART0_TX_GPIO_PIN        0U
@@ -71,22 +87,34 @@
 
 // GPIO configuration
 #define HAL_GPIO_PINS { \
-{  25,                          true,   0, 25U },  /* LED_GREEN OUTPUT */ \
-{  6,                           true,   0, 6U  },  /* LED_RED1 OUTPUT */ \
-{  9,                           true,   0, 9U  },  /* LED_RED2 OUTPUT */ \
+{  2,                           true,   0, 2U },  /* LED1 OUTPUT */ \
+{  6,                           true,   0, 6U  },  /* LED2 OUTPUT */ \
+{  9,                           true,   0, 9U  },  /* LED3 OUTPUT */ \
 {  RP2xxx_SPI_CS_FOR_MPU9250,   true,   0, RP2xxx_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
 {  RP2xxx_SPI_CS_FOR_MPU6500,   true,   0, RP2xxx_SPI_CS_FOR_MPU6500 },   /* SPI CS for mpu6500 */ \
 {  RP2xxx_SPI_CS_FOR_SDCARD,    true,   0, RP2xxx_SPI_CS_FOR_SDCARD  }    /* SPI CS for sdcard  */ \
 }
 
 //
+#ifndef HAL_BOARD_NAME
 #define HAL_BOARD_NAME                      "Ardupilot rp2xxx"
+#endif
+#ifndef HAL_CPU_CLASS
 #define HAL_CPU_CLASS                       HAL_CPU_CLASS_150
+#endif
+#ifndef HAL_MEM_CLASS
 #define HAL_MEM_CLASS                       HAL_MEM_CLASS_192
+#endif
+#ifndef HAL_STORAGE_SIZE
 #define HAL_STORAGE_SIZE                    4096
+#endif
 #define HAL_STORAGE_SIZE_AVAILABLE          HAL_STORAGE_SIZE
+#ifndef BOARD_FLASH_SIZE
 #define BOARD_FLASH_SIZE                    2048
+#endif
+#ifndef CONFIG_HAL_BOARD_SUBTYPE
 #define CONFIG_HAL_BOARD_SUBTYPE            HAL_BOARD_SUBTYPE_NONE
+#endif
 
 
 #define PROBE_IMU_SPI(driver, devname, args ...) ADD_BACKEND(AP_InertialSensor_ ## driver::probe(*this,hal.spi->get_device(devname),##args))
@@ -127,7 +155,9 @@
 #define HAL_OS_FATFS_IO             1
 #define HAL_OS_POSIX_IO             0
 
+#ifndef AP_SCRIPTING_ENABLED
 #define AP_SCRIPTING_ENABLED 0
+#endif
 
 #ifndef HAVE_FILESYSTEM_SUPPORT
 #define HAVE_FILESYSTEM_SUPPORT     1

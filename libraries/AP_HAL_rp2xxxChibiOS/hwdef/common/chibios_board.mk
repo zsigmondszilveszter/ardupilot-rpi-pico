@@ -81,18 +81,7 @@ endif
 ##############################################################################
 # Architecture or project specific options
 #
-HWDEF = $(AP_HAL)/hwdef
-# Stack size to be allocated to the Cortex-M process stack. This stack is
-# the stack used by the main() thread.
-ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x400
-endif
-
-# Stack size to the allocated to the Cortex-M main/exceptions stack. This
-# stack is used for processing interrupts and exceptions.
-ifeq ($(USE_EXCEPTIONS_STACKSIZE),)
-  USE_EXCEPTIONS_STACKSIZE = 0x400
-endif
+HWDEF ?= $(AP_HAL)/hwdef
 
 # Enables the use of FPU (no, softfp, hard).
 ifeq ($(USE_FPU),)
@@ -111,29 +100,31 @@ CONFDIR := $(HWDEF)/common
 # Define project name here
 PROJECT = ch
 
-# Target settings.
-MCU  = cortex-m0plus
+# MCU-specific configuration (startup, platform, port, linker script) is
+# expected to be loaded by a board-specific chibios_board.mk before including
+# this file (MCU_CONFIG_LOADED=1).  The block below provides rp2040 defaults
+# for backward compatibility when this file is used standalone.
+ifneq ($(MCU_CONFIG_LOADED),1)
+  MCU  = cortex-m0plus
+  include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_rp2040.mk
+  include $(CHIBIOS)/os/hal/ports/RP/RP2040/platform.mk
+  include $(CHIBIOS)/os/common/ports/ARMv6-M/compilers/GCC/mk/port_rp2.mk
+  LDSCRIPT = $(STARTUPLD)/RP2040_FLASH.ld
+endif
 
 # Imported source files and paths
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
-# Startup files.
-include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_rp2040.mk
 # HAL-OSAL files (optional).
 include $(CHIBIOS)/os/hal/hal.mk
-include $(CHIBIOS)/os/hal/ports/RP/RP2040/platform.mk
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
-include $(CHIBIOS)/os/common/ports/ARMv6-M/compilers/GCC/mk/port_rp2.mk
 # Auto-build files in ./source recursively.
 include $(CHIBIOS)/tools/mk/autobuild.mk
 # Other files (optional).
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 
-
-# Define linker script file here
-LDSCRIPT= $(STARTUPLD)/RP2xxx_FLASH.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -142,24 +133,12 @@ CSRC = $(sort $(ALLCSRC))
 
 CSRC += $(HWDEF)/common/hrt.c \
      $(HWDEF)/common/malloc.c \
-     $(HWDEF)/common/board.c \
      $(HWDEF)/common/rp2xxx_util.c \
      $(HWDEF)/common/usbcfg.c \
      $(HWDEF)/common/bouncebuffer.c \
      $(HWDEF)/common/stubs.c \
-     $(HWDEF)/common/pio.c \
-     $(HWDEF)/common/rp2040_rom_float_init.c
+     $(HWDEF)/common/pio.c
 
-# RP2040 ROM floating-point shims: added to ALLXASMSRC so they survive the
-# ASMXSRC = $(ALLXASMSRC) reset below.
-ALLXASMSRC += $(HWDEF)/common/float_aeabi_rp2040.S
-ALLXASMSRC += $(HWDEF)/common/double_aeabi_rp2040.S
-# B0 silicon shims: always compiled (PICO_*_SUPPORT_ROM_V1=1 is hardcoded in
-# rp2040_rom_float_asm.h). On B1 the shims exist in flash but are never called.
-ALLXASMSRC += $(HWDEF)/common/float_v1_rom_shim_rp2040.S
-ALLXASMSRC += $(HWDEF)/common/double_v1_rom_shim_rp2040.S
-#	   $(TESTSRC) \
-#	   test.c
 ifneq ($(CRASHCATCHER),)
 LIBCC_CSRC = $(CRASHCATCHER)/Core/src/CrashCatcher.c \
              $(HWDEF)/common/crashdump.c

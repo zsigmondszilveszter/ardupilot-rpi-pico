@@ -143,6 +143,7 @@ private:
 
     void _run_timers();
     void _run_io(void);
+    void check_stack_free(void);
     static void thread_create_trampoline(void *ctx);
 
     // calculates an integer to be used as the priority for a newly-created thread

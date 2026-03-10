@@ -15,30 +15,8 @@
  * Code by Szilveszter Zsigmond
  */
 #pragma once
-#ifndef BOARD_H
-#define BOARD_H
-
-/*===========================================================================*/
-/* Driver constants.                                                         */
-/*===========================================================================*/
-
-/*
- * Board identifier.
- */
-#define BOARD_RP_PICO_RP2040
-#define BOARD_NAME                  "Raspberry Pi Pico"
-
-/*
- * Board oscillators-related settings.
- */
-#if !defined(RP_XOSCCLK)
-#define RP_XOSCCLK                  12000000U
-#endif
-
-/*
- * MCU type.
- */
-#define RP2040
+#ifndef BOARD_COMMON_H
+#define BOARD_COMMON_H
 
 /*
  * IO pins assignments.
@@ -78,6 +56,4 @@ extern "C" {
 #endif
 #endif /* _FROM_ASM_ */
 
-#endif /* BOARD_H */
-
-
+#endif /* BOARD_COMMON_H */

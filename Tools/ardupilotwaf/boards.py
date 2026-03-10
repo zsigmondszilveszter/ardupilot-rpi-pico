@@ -611,14 +611,18 @@ def add_dynamic_boards_esp32():
                 newclass = type(d, (esp32,), {'name': d})
 
 def add_dynamic_boards_rp2xxxChibiOS():
-    '''add boards based on existance of hwdef.dat in subdirectories for RP2040 ChibiOS'''
+    '''add boards based on existance of hwdef.dat in subdirectories for rp2xxx ChibiOS'''
     dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_rp2xxxChibiOS/hwdef'))
     for d in dirlist:
         if d in _board_classes.keys():
             continue
         hwdef = os.path.join(dirname, d, 'hwdef.dat')
         if os.path.exists(hwdef):
-            newclass = type(d, (rp2xxxChibiOS,), {'name': d})
+            if d.startswith('rp2350'):
+                base = rp2350ChibiOS
+            else:
+                base = rp2040ChibiOS
+            newclass = type(d, (base,), {'name': d})
 
 def get_boards_names():
     add_dynamic_boards_chibios()
@@ -1096,7 +1100,7 @@ class rp2xxxChibiOS(Board):
         #     cfg.env.HWDEF = self.hwdef
         super(rp2xxxChibiOS, self).configure_env(cfg, env)
 
-        cfg.load('rp2040')
+        cfg.load('rp2xxx')
         env.BOARD = self.name
 
         env.DEFINES.update(
@@ -1110,11 +1114,8 @@ class rp2xxxChibiOS(Board):
             'AP_HAL_rp2xxxChibiOS',
         ]
 
-        cfg.env.CPU_FLAGS = [
-            "-mcpu=cortex-m0plus",
-            "-mfloat-abi=soft"
-        ]
-        # TODO(szilveszter) use floating point improvements from the PICO SDK
+        # CPU_FLAGS and RP_MCU are set by MCU-specific subclasses
+        # (rp2040ChibiOS / rp2350ChibiOS).
 
         # make board name available for USB IDs
         env.CHIBIOS_BOARD_NAME = 'HAL_BOARD_NAME="%s"' % self.name
@@ -1177,7 +1178,6 @@ class rp2xxxChibiOS(Board):
         cfg.env.PROCESS_STACK = "0xC00"
         cfg.env.MAIN_STACK = "0x400"
 
-
         bldnode = cfg.bldnode.make_node("rp2xxxChibiOS")
         env.BUILDROOT = bldnode.make_node('').abspath()
         env.LINKFLAGS = cfg.env.CPU_FLAGS + [
@@ -1200,7 +1200,7 @@ class rp2xxxChibiOS(Board):
             '--specs=nosys.specs',
             '-L%s' % env.BUILDROOT,
             '-L%s' % cfg.srcnode.make_node('modules/rp2xxxChibiOS/os/common/startup/ARMCMx/compilers/GCC/ld/').abspath(),
-            '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=RP2040_FLASH.ld,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
+            '-Wl,-Map,Linker.map,--cref,--gc-sections,--no-warn-mismatch,--library-path=/ld,--script=%s,--defsym=__process_stack_size__=%s,--defsym=__main_stack_size__=%s' % (cfg.env.RP_LDSCRIPT, cfg.env.PROCESS_STACK, cfg.env.MAIN_STACK),
         ]
 
         if cfg.env.DEBUG:
@@ -1280,7 +1280,7 @@ class rp2xxxChibiOS(Board):
     def build(self, bld):
         
         super(rp2xxxChibiOS, self).build(bld)
-        bld.load('rp2040')
+        bld.load('rp2xxx')
         
         # Avoid infinite recursion
         bld.options.upload = False
@@ -1291,6 +1291,31 @@ class rp2xxxChibiOS(Board):
 
     def get_name(self):
         return self.__class__.__name__
+
+
+class rp2040ChibiOS(rp2xxxChibiOS):
+    abstract = True
+    def configure_env(self, cfg, env):
+        cfg.env.CPU_FLAGS = [
+            "-mcpu=cortex-m0plus",
+            "-mfloat-abi=soft",
+        ]
+        cfg.env.RP_MCU = "rp2040"
+        cfg.env.RP_LDSCRIPT = "RP2040_FLASH.ld"
+        super(rp2040ChibiOS, self).configure_env(cfg, env)
+
+class rp2350ChibiOS(rp2xxxChibiOS):
+    abstract = True
+    def configure_env(self, cfg, env):
+        cfg.env.CPU_FLAGS = [
+            "-mcpu=cortex-m33",
+            "-mfpu=fpv5-sp-d16",
+            "-mfloat-abi=softfp",
+        ]
+        cfg.env.RP_MCU = "rp2350"
+        cfg.env.RP_LDSCRIPT = "RP2350_FLASH.ld"
+        super(rp2350ChibiOS, self).configure_env(cfg, env)
+
 class esp32s3(esp32):
     abstract = True
     toolchain = 'xtensa-esp32s3-elf'

@@ -618,3 +618,44 @@ void Scheduler::watchdog_pat(void)
     wdgReset(&WDGD1);
     last_watchdog_pat_ms = AP_HAL::millis();
 }
+
+#if CH_DBG_ENABLE_STACK_CHECK == TRUE
+
+extern "C" uint32_t __main_stack_base__;
+
+/*
+  check how much stack is free given a stack base. Assumes the fill
+  byte is 0x55
+ */
+static uint32_t stack_free(void *stack_base)
+{
+    const uint32_t *p = (const uint32_t *)stack_base;
+    const uint32_t canary_word = 0x55555555;
+    while (*p == canary_word) {
+        p++;
+    }
+    return ((uint32_t)p) - (uint32_t)stack_base;
+}
+
+/*
+  check we have enough stack free on all threads and the ISR stack
+ */
+void Scheduler::check_stack_free(void)
+{
+    const uint32_t min_stack = 64;
+
+    if (stack_free(&__main_stack_base__) < min_stack) {
+#if AP_INTERNALERROR_ENABLED
+        AP::internalerror().error(AP_InternalError::error_t::stack_overflow, 0xFFFF);
+#endif
+    }
+
+    for (thread_t *tp = chRegFirstThread(); tp; tp = chRegNextThread(tp)) {
+        if (stack_free(tp->wabase) < min_stack) {
+#if AP_INTERNALERROR_ENABLED
+            AP::internalerror().error(AP_InternalError::error_t::stack_overflow, tp->realprio);
+#endif
+        }
+    }
+}
+#endif // CH_DBG_ENABLE_STACK_CHECK == TRUE

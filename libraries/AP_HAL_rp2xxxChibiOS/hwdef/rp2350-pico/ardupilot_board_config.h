@@ -1,0 +1,23 @@
+#pragma once
+
+/*
+ * Board-specific ArduPilot policy overrides for the RP2350 Pico target.
+ */
+
+#define SCHEDULER_DEFAULT_LOOP_RATE 75
+#define HAL_AHRS_EKF_TYPE_DEFAULT 3
+#define HAL_EKF_IMU_MASK_DEFAULT 1
+#define HAL_DEFAULT_INS_FAST_SAMPLE 0
+#define HAL_GYROFFT_ENABLED 0
+#define AP_TERRAIN_AVAILABLE 0
+#define HAL_PROXIMITY_ENABLED 0
+#define AP_BEACON_ENABLED 0
+#define HAL_ADSB_ENABLED 0
+#define HAL_MOUNT_ENABLED 0
+#define AP_CAMERA_ENABLED 0
+#define AP_WINCH_ENABLED 0
+#define AP_VIDEOTX_ENABLED 0
+#define HAL_GENERATOR_ENABLED 0
+#define AP_GRIPPER_ENABLED 0
+#define AP_AIS_ENABLED 0
+#define AP_SCRIPTING_ENABLED 0
