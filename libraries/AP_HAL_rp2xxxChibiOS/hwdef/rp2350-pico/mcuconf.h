@@ -69,6 +69,7 @@
 /*
  * SIO driver system settings.
  */
+#define RP_ADC_USE_ADC1                     TRUE
 #define RP_SIO_USE_UART0                    TRUE
 #define RP_SIO_USE_UART1                    TRUE
 

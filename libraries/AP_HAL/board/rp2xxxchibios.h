@@ -50,6 +50,16 @@
 #ifndef SCHEDULER_DEFAULT_LOOP_RATE
 #define SCHEDULER_DEFAULT_LOOP_RATE     50
 #endif
+#ifndef HAL_RP2XXX_ADC_TOTAL_SAMPLE_RATE_HZ
+// Total ADC conversion rate shared across all enabled RP ADC channels.
+// Example: 1000 Hz total with 2 channels -> about 500 samples/sec per pin.
+#define HAL_RP2XXX_ADC_TOTAL_SAMPLE_RATE_HZ 1000U
+#endif
+#ifndef HAL_RP2XXX_ANALOGIN_UPDATE_INTERVAL_US
+// Interval for publishing averaged ADC values into the AnalogIn frontend.
+// Example: 10000 us -> 100 Hz updates.
+#define HAL_RP2XXX_ANALOGIN_UPDATE_INTERVAL_US 10000U
+#endif
 
 #define HAL_WATCHDOG_ENABLED_DEFAULT RP2xxx_WATCHDOG_ENABLED
 

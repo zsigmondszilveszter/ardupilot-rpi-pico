@@ -116,6 +116,7 @@ void HAL_Rp2xxxChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
     hal.scheduler->init();
     hal.console->begin(0);   // debug console on /dev/ttyACM1 (or whatever comes in the row (the first ACM is the serial0, if no other ACM device is connected))
     hal.gpio->init();
+    hal.analogin->init();
     hal.rcout->init();
 
      /*

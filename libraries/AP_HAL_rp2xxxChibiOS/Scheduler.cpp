@@ -16,9 +16,9 @@
  */
 
 #include <AP_HAL/AP_HAL.h>
-#include "AP_HAL_rp2xxxChibiOS.h"
 #include <AP_Math/AP_Math.h>
 #include <AP_HAL_rp2xxxChibiOS/RCInput.h>
+#include <AP_HAL_rp2xxxChibiOS/AnalogIn.h>
 #include <AP_InternalError/AP_InternalError.h>
 
 #include <hal.h>
