@@ -154,8 +154,10 @@ void RCInput::_timer_tick(void)
     }
 
     if (AP::RC().new_input()) {
+        WITH_SEMAPHORE(rcin_mutex);
+        _rcin_timestamp_last_signal = AP_HAL::micros();
         last_frame_ms = AP_HAL::millis();
-        uint8_t n = AP::RC().num_channels();
+        uint8_t n = MIN(AP::RC().num_channels(), uint8_t(RC_INPUT_MAX_CHANNELS));
         for (uint8_t i=0; i<n; i++) {
             _rc_values[i] = AP::RC().read(i);
         }

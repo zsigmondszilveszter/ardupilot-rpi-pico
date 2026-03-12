@@ -19,6 +19,7 @@
  */
 
 #include <AP_Math/AP_Math.h>
+#include <AP_Common/ExpandingString.h>
 #include <AP_InternalError/AP_InternalError.h>
 
 #include "Util.h"
@@ -26,6 +27,23 @@
 #include "hwdef/common/rp2xxx_util.h"
 
 using namespace Rp2xxxChibiOS;
+
+extern "C" {
+    uint32_t __main_stack_base__;
+    uint32_t __main_stack_end__;
+    uint32_t __main_thread_stack_base__;
+    uint32_t __main_thread_stack_end__;
+}
+
+static uint32_t stack_free(void *stack_base)
+{
+    const uint32_t *p = static_cast<const uint32_t *>(stack_base);
+    const uint32_t canary_word = 0x55555555;
+    while (*p == canary_word) {
+        p++;
+    }
+    return uintptr_t(p) - uintptr_t(stack_base);
+}
 
 Util::Util() {}
 
@@ -139,4 +157,29 @@ uint32_t Util::available_memory(void)
 {
     // from malloc.c in hwdef
     return mem_available();
+}
+
+void Util::thread_info(ExpandingString &str)
+{
+    const uint32_t isr_stack_size = uintptr_t(&__main_stack_end__) - uintptr_t(&__main_stack_base__);
+    str.printf("ThreadsV2\nISR           PRI=255 sp=%p STACK=%u/%u\n",
+               &__main_stack_base__,
+               unsigned(stack_free(&__main_stack_base__)),
+               unsigned(isr_stack_size));
+
+    for (thread_t *tp = chRegFirstThread(); tp; tp = chRegNextThread(tp)) {
+        uint32_t total_stack;
+        if (tp->wabase == (void *)&__main_thread_stack_base__) {
+            total_stack = uintptr_t(&__main_thread_stack_end__) - uintptr_t(&__main_thread_stack_base__);
+        } else {
+            total_stack = uintptr_t(tp) - uintptr_t(tp->wabase);
+        }
+
+        str.printf("%-13.13s PRI=%3u sp=%p STACK=%u/%u\n",
+                   tp->name ? tp->name : "?",
+                   unsigned(tp->realprio),
+                   tp->wabase,
+                   unsigned(stack_free(tp->wabase)),
+                   unsigned(total_stack));
+    }
 }

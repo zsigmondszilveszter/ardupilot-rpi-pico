@@ -14,6 +14,7 @@ class Rp2xxxChibiOS::Util : public AP_HAL::Util {
 public:
     Util();
     uint32_t available_memory() override;
+    void thread_info(ExpandingString &str) override;
 
     // Special Allocation Routines
     void *malloc_type(size_t size, AP_HAL::Util::Memory_Type mem_type) override;

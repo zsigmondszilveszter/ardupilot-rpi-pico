@@ -65,7 +65,7 @@ void Rp2xxxChibiOS::UsbSerialDriver::writeThread() {
     if (_usb_cdc_write_thread_ctx == nullptr) {
         _usb_cdc_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_WRITE_THD_WA_SIZE),
                                               "UART_TX",
-                                              USB_CDC_THREAD_PRIORITY,
+                                              APM_UART_PRIORITY,
                                               _usb_cdc_write_thread,
                                               this,
                                               &ch1);
@@ -80,7 +80,7 @@ void Rp2xxxChibiOS::UsbSerialDriver::readThread() {
     if (_usb_cdc_read_thread_ctx == nullptr) {
         _usb_cdc_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(USB_READ_THD_WA_SIZE),
                                               "UART_RX",
-                                              USB_CDC_THREAD_PRIORITY,
+                                              APM_UART_PRIORITY,
                                               _usb_cdc_read_thread,
                                               this,
                                               &ch1);
@@ -100,11 +100,11 @@ void Rp2xxxChibiOS::UsbSerialDriver::_begin(uint32_t b, uint16_t rxS, uint16_t t
     WITH_SEMAPHORE(_usbMutex);
     initialized_flag = false;
 
-    if (rxS > MAX_USB_RX_FIFO_SIZE) {
-        rxS = MAX_USB_RX_FIFO_SIZE;
+    if (rxS > RP2xxx_USB_MAX_ALLOWED_BUFFER_SIZE ) {
+        rxS = RP2xxx_USB_MAX_ALLOWED_BUFFER_SIZE ;
     }
-    if (txS > MAX_USB_TX_FIFO_SIZE) {
-        txS = MAX_USB_TX_FIFO_SIZE;
+    if (txS > RP2xxx_USB_MAX_ALLOWED_BUFFER_SIZE ) {
+        txS = RP2xxx_USB_MAX_ALLOWED_BUFFER_SIZE ;
     }
     if (rxS != rxFIFO.get_size()) {
         rxFIFO.set_size(rxS);

@@ -34,7 +34,7 @@ void Rp2xxxChibiOS::UARTDriver::writeThread() {
     if (_uart_write_thread_ctx == nullptr) {
         _uart_write_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(UART_WRITE_THD_WA_SIZE),
                 "UART_TX",
-                UART_THREAD_PRIORITY,        /* Initial priority.    */
+                APM_UART_PRIORITY,        /* Initial priority.    */
                 _uart_write_thread,             /* Thread function.     */
                 this,
                 &ch1);
@@ -46,7 +46,7 @@ void Rp2xxxChibiOS::UARTDriver::readThread() {
     if (_uart_read_thread_ctx == nullptr) {
         _uart_read_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(UART_READ_THD_WA_SIZE),
                 "UART_RX",
-                UART_THREAD_PRIORITY,        /* Initial priority.    */
+                APM_UART_PRIORITY,        /* Initial priority.    */
                 _uart_read_thread,             /* Thread function.     */
                 this,
                 &ch1);
@@ -63,11 +63,11 @@ void Rp2xxxChibiOS::UARTDriver::_begin(uint32_t b, uint16_t rxS, uint16_t txS) {
 
     {
         WITH_SEMAPHORE(_uartMutex);
-        if (rxS > MAX_UART_RX_FIFO_SIZE) {
-            rxS = MAX_UART_RX_FIFO_SIZE;
+        if (rxS > RP2xxx_UART_MAX_ALLOWED_BUFFER_SIZE ) {
+            rxS = RP2xxx_UART_MAX_ALLOWED_BUFFER_SIZE ;
         }
-        if (txS > MAX_UART_TX_FIFO_SIZE) {
-            txS = MAX_UART_TX_FIFO_SIZE;
+        if (txS > RP2xxx_UART_MAX_ALLOWED_BUFFER_SIZE ) {
+            txS = RP2xxx_UART_MAX_ALLOWED_BUFFER_SIZE ;
         }
         if (rxS != rxFIFO.get_size()) {
             rxFIFO.set_size(rxS);

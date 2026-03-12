@@ -69,21 +69,21 @@ protected:
 
     uint16_t _rc_values[RC_INPUT_MAX_CHANNELS] = {0};
 
-    uint64_t _last_read;
-    uint8_t _num_channels;
+    uint64_t _last_read = 0;
+    uint8_t _num_channels = 0;
     Semaphore rcin_mutex;
     int16_t _rssi = -1;
     int16_t _rx_link_quality = -1;
-    uint32_t _rcin_timestamp_last_signal;
+    uint32_t _rcin_timestamp_last_signal = 0;
 
     PIO _pio = pio0;
     uint _sm = 0;
 
     RCProtocol _protocol;
-    uint32_t last_frame_ms;
+    uint32_t last_frame_ms = 0;
 
-    bool _init;
-    const char *last_protocol;
+    bool _init = false;
+    const char *last_protocol = nullptr;
 
     enum class RCSource {
         NONE = 0,
@@ -91,9 +91,9 @@ protected:
         RCPROT_PULSES = 2,
         RCPROT_BYTES = 3,
         APRADIO = 4,
-    } last_source;
+    } last_source = RCSource::NONE;
 
-    bool pulse_input_enabled;
+    bool pulse_input_enabled = false;
 };
 
 }
