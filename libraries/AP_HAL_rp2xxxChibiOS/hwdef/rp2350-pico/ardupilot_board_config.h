@@ -4,36 +4,36 @@
  * Board-specific ArduPilot policy overrides for the RP2350 Pico target.
  */
 
-#define RP2xxx_I2C1_SDA_GPIO_PIN 10U
-#define RP2xxx_I2C1_SCL_GPIO_PIN 11U
+#define RP2xxx_I2C1_SDA_GPIO_PIN        10U
+#define RP2xxx_I2C1_SCL_GPIO_PIN        11U
 
-#define RP2xxx_SPI0_MISO_GPIO_PIN 16U
-#define RP2xxx_SPI0_MOSI_GPIO_PIN 19U
-#define RP2xxx_SPI0_SCK_GPIO_PIN 18U
-#define RP2xxx_SPI1_MISO_GPIO_PIN 12U
-#define RP2xxx_SPI1_MOSI_GPIO_PIN 15U
-#define RP2xxx_SPI1_SCK_GPIO_PIN 14U
-#define RP2xxx_SPI_CS_FOR_MPU9250 13U
-#define RP2xxx_SPI_CS_FOR_MPU6500 8U
-#define RP2xxx_SPI_CS_FOR_SDCARD 17U
+#define RP2xxx_SPI0_MISO_GPIO_PIN       16U
+#define RP2xxx_SPI0_MOSI_GPIO_PIN       19U
+#define RP2xxx_SPI0_SCK_GPIO_PIN        18U
+#define RP2xxx_SPI1_MISO_GPIO_PIN       12U
+#define RP2xxx_SPI1_MOSI_GPIO_PIN       15U
+#define RP2xxx_SPI1_SCK_GPIO_PIN        14U
+#define RP2xxx_SPI_CS_FOR_MPU9250       13U
+#define RP2xxx_SPI_CS_FOR_MPU6500       8U
+#define RP2xxx_SPI_CS_FOR_SDCARD        17U
 
-#define RP2xxx_UART0_TX_GPIO_PIN 0U
-#define RP2xxx_UART0_RX_GPIO_PIN 1U
-#define RP2xxx_UART1_TX_GPIO_PIN 4U
-#define RP2xxx_UART1_RX_GPIO_PIN 5U
-#define RP2xxx_UART_TX_FIFO_SIZE 256
-#define RP2xxx_UART_RX_FIFO_SIZE 128
-#define RP2xxx_USB_TX_FIFO_SIZE 512
-#define RP2xxx_USB_RX_FIFO_SIZE 256
+#define RP2xxx_UART0_TX_GPIO_PIN        0U
+#define RP2xxx_UART0_RX_GPIO_PIN        1U
+#define RP2xxx_UART1_TX_GPIO_PIN        4U
+#define RP2xxx_UART1_RX_GPIO_PIN        5U
+#define RP2xxx_UART_TX_FIFO_SIZE        256
+#define RP2xxx_UART_RX_FIFO_SIZE        128
+#define RP2xxx_USB_TX_FIFO_SIZE         512
+#define RP2xxx_USB_RX_FIFO_SIZE         256
 
-#define RP2xxx_RC_RX_PIN 7U
-#define RP2xxx_RC_PROTOCOL IBUS
+#define RP2xxx_RC_RX_PIN                7U
+#define RP2xxx_RC_PROTOCOL              IBUS
 
-#define RP2xxx_NR_PWM_PERIPH_ENABLED 3
-#define RP2xxx_RC_OUT0 20U
-#define RP2xxx_RC_OUT1 21U
-#define RP2xxx_RC_OUT2 22U
-#define RP2xxx_RC_OUT3 26U
+#define RP2xxx_NR_PWM_PERIPH_ENABLED    3
+#define RP2xxx_RC_OUT0                  20U
+#define RP2xxx_RC_OUT1                  21U
+#define RP2xxx_RC_OUT2                  22U
+#define RP2xxx_RC_OUT3                  26U
 
 #define HAL_GPIO_PINS { \
     {  2,                         true, 0, 2U }, \
@@ -70,22 +70,22 @@
     0, 400*SPI_KHZ, 25*SPI_MHZ)
 #define HAL_SPI_DEVICE_LIST HAL_SPI_DEVICE_MPU9250,HAL_SPI_DEVICE_MPU6500,HAL_SPI_DEVICE_SDCARD
 
-#define HAL_STORAGE_SIZE        8192 // this is RAM mapped, set it carefully as it consumes RAM 
+#define HAL_STORAGE_SIZE                8192 // this is RAM mapped, set it carefully as it consumes RAM 
 
-#define SCHEDULER_DEFAULT_LOOP_RATE 125
-#define HAL_AHRS_EKF_TYPE_DEFAULT 3
-#define HAL_EKF_IMU_MASK_DEFAULT 1
-#define HAL_DEFAULT_INS_FAST_SAMPLE 0
-#define HAL_GYROFFT_ENABLED 0
-#define AP_TERRAIN_AVAILABLE 0
-#define HAL_PROXIMITY_ENABLED 0
-#define AP_BEACON_ENABLED 0
-#define HAL_ADSB_ENABLED 0
-#define AP_WINCH_ENABLED 0
-#define HAL_GENERATOR_ENABLED 0
-#define AP_GRIPPER_ENABLED 0
-#define AP_AIS_ENABLED 0
-#define AP_SCRIPTING_ENABLED 0
+#define SCHEDULER_DEFAULT_LOOP_RATE     125
+#define HAL_AHRS_EKF_TYPE_DEFAULT       3
+#define HAL_EKF_IMU_MASK_DEFAULT        1
+#define HAL_DEFAULT_INS_FAST_SAMPLE     0
+#define HAL_GYROFFT_ENABLED             0
+#define AP_TERRAIN_AVAILABLE            0
+#define HAL_PROXIMITY_ENABLED           0
+#define AP_BEACON_ENABLED               0
+#define HAL_ADSB_ENABLED                0
+#define AP_WINCH_ENABLED                0
+#define HAL_GENERATOR_ENABLED           0
+#define AP_GRIPPER_ENABLED              0
+#define AP_AIS_ENABLED                  0
+#define AP_SCRIPTING_ENABLED            0
 
 /*
  * Only expose GP27/ADC1 and GP28/ADC2 here.

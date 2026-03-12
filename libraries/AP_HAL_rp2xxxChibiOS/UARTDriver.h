@@ -17,7 +17,7 @@ public:
     /* rp2040 implementations of UARTDriver virtual methods */
     bool is_initialized() override;
     bool tx_pending() override;
-
+    uint32_t get_baud_rate() const override { return _uart_config.baud; }
     /* rp2040 implementations of BetterStream virtual methods */
     uint32_t txspace() override;
 
