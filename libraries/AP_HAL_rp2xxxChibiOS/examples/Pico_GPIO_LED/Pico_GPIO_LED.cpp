@@ -7,19 +7,19 @@ const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 
 void setup(void)
 {
-    hal.gpio->pinMode(25U, 1);
-    hal.gpio->pinMode(6U, 1);
-    hal.gpio->pinMode(9U, 1);
+    hal.gpio->pinMode(HAL_GPIO_A_LED_PIN, HAL_GPIO_OUTPUT);
+    hal.gpio->pinMode(HAL_GPIO_B_LED_PIN, HAL_GPIO_OUTPUT);
+    hal.gpio->pinMode(HAL_GPIO_C_LED_PIN, HAL_GPIO_OUTPUT);
     hal.scheduler->delay(1500);
 }
 
 void loop(void)
 {
-    hal.gpio->toggle(25U);
+    hal.gpio->toggle(HAL_GPIO_A_LED_PIN);
     hal.scheduler->delay(300);
-    hal.gpio->toggle(6U);
+    hal.gpio->toggle(HAL_GPIO_B_LED_PIN);
     hal.scheduler->delay(300);
-    hal.gpio->toggle(9U);
+    hal.gpio->toggle(HAL_GPIO_C_LED_PIN);
     hal.scheduler->delay(300);
 }
 

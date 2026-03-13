@@ -20,10 +20,10 @@ static void setup_uart(AP_HAL::UARTDriver *uart, const char *name)
 
 void setup(void)
 {
-    hal.gpio->pinMode(25U, 1);
-    hal.gpio->write(25U, PAL_HIGH);
+    hal.gpio->pinMode(HAL_GPIO_A_LED_PIN, HAL_GPIO_OUTPUT);
+    hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_ON);
     hal.scheduler->delay(1000);
-    hal.gpio->write(25U, PAL_LOW);
+    hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_OFF);
 
     /*
       start all UARTs at 115200 with default buffer sizes
@@ -65,7 +65,7 @@ void loop(void)
     read_uart(hal.serial(5), "SERIAL5");
     read_uart(hal.console, "Debug Console");
 
-    hal.gpio->toggle(25U);
+    hal.gpio->toggle(HAL_GPIO_A_LED_PIN);
 }
 
 AP_HAL_MAIN();

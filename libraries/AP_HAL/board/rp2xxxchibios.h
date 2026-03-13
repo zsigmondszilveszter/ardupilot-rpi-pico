@@ -160,9 +160,8 @@
 // GPIO configuration
 #ifndef HAL_GPIO_PINS
 #define HAL_GPIO_PINS { \
-{  2,                           true,   0, 2U },  /* LED1 OUTPUT */ \
+{  25,                          true,   0, 25U },  /* LED1 OUTPUT */ \
 {  6,                           true,   0, 6U  },  /* LED2 OUTPUT */ \
-{  9,                           true,   0, 9U  },  /* LED3 OUTPUT */ \
 {  RP2xxx_SPI_CS_FOR_MPU9250,   true,   0, RP2xxx_SPI_CS_FOR_MPU9250 },   /* SPI CS for mpu9250 */ \
 {  RP2xxx_SPI_CS_FOR_MPU6500,   true,   0, RP2xxx_SPI_CS_FOR_MPU6500 },   /* SPI CS for mpu6500 */ \
 {  RP2xxx_SPI_CS_FOR_SDCARD,    true,   0, RP2xxx_SPI_CS_FOR_SDCARD  }    /* SPI CS for sdcard  */ \

@@ -23,24 +23,24 @@ static void blinkerThread1(void *arg)
 {
     while (true) {
         hal.scheduler->delay(300);
-        hal.gpio->toggle(25U);
+        hal.gpio->toggle(HAL_GPIO_A_LED_PIN);
     }
 }
 static void blinkerThread2(void *arg)
 {
     while (true) {
         hal.scheduler->delay(300);
-        hal.gpio->toggle(6U);
+        hal.gpio->toggle(HAL_GPIO_B_LED_PIN);
     }
 }
 
 void setup(void)
 {
-    hal.gpio->pinMode(25U, 1);
-    hal.gpio->pinMode(6U, 1);
-    hal.gpio->write(25U, PAL_HIGH);
+    hal.gpio->pinMode(HAL_GPIO_A_LED_PIN, HAL_GPIO_OUTPUT);
+    hal.gpio->pinMode(HAL_GPIO_B_LED_PIN, HAL_GPIO_OUTPUT);
+    hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_ON);
     hal.scheduler->delay(1000);
-    hal.gpio->write(25U, PAL_LOW);
+    hal.gpio->write(HAL_GPIO_A_LED_PIN, HAL_GPIO_LED_OFF);
 
     setup_uart(hal.console, "DebugConsole");  // console
     

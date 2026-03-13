@@ -35,10 +35,16 @@
 #define RP2xxx_RC_OUT2                  22U
 #define RP2xxx_RC_OUT3                  26U
 
+#define HAL_GPIO_A_LED_PIN              25U
+#define HAL_GPIO_B_LED_PIN              6U
+#define HAL_GPIO_C_LED_PIN              9U
+#define HAL_GPIO_LED_ON                 1
+#define AP_NOTIFY_GPIO_LED_3_ENABLED    1
+
 #define HAL_GPIO_PINS { \
-    {  2,                         true, 0, 2U }, \
-    {  6,                         true, 0, 6U }, \
-    {  9,                         true, 0, 9U }, \
+    {  HAL_GPIO_A_LED_PIN,         true, 0, HAL_GPIO_A_LED_PIN }, \
+    {  HAL_GPIO_B_LED_PIN,         true, 0, HAL_GPIO_B_LED_PIN }, \
+    {  HAL_GPIO_C_LED_PIN,         true, 0, HAL_GPIO_C_LED_PIN }, \
     {  RP2xxx_SPI_CS_FOR_MPU9250, true, 0, RP2xxx_SPI_CS_FOR_MPU9250 }, \
     {  RP2xxx_SPI_CS_FOR_MPU6500, true, 0, RP2xxx_SPI_CS_FOR_MPU6500 }, \
     {  RP2xxx_SPI_CS_FOR_SDCARD,  true, 0, RP2xxx_SPI_CS_FOR_SDCARD } \

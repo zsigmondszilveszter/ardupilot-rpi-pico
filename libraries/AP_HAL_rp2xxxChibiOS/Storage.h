@@ -21,24 +21,8 @@ public:
     bool healthy(void) override;
 
 private:
-    enum class ErrorCode : uint8_t {
-        None = 0,
-        OpenFailed,
-        ReadFailed,
-        ExtendFailed,
-        ExtendFsyncFailed,
-        ReadFallbackZero,
-        WriteSkippedUnavailable,
-        FlushLseekFailed,
-        FlushWriteFailed,
-        FlushFsyncFailed,
-    };
-
     void _storage_open(void);
     void _mark_dirty(uint16_t loc, uint16_t length);
-    void _set_error(ErrorCode err);
-    void _report_error_later();
-    const char *_error_string(ErrorCode err) const;
 
     uint8_t _buffer[HAL_STORAGE_SIZE] __attribute__((aligned(4)));
     uint32_t _dirty_mask;          // 1 bit per line (4 lines)
@@ -47,7 +31,4 @@ private:
     HAL_Semaphore sem;
     uint8_t tmpline[RP2xxx_STORAGE_LINE_SIZE];
     uint32_t _last_empty_ms = 0;
-    volatile ErrorCode _last_error = ErrorCode::None;
-    uint32_t _error_count = 0;
-    uint32_t _last_report_ms = 0;
 };
