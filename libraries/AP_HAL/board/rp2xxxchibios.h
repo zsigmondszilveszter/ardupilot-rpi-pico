@@ -32,9 +32,6 @@
 #endif
 
 // Scheduler
-#ifndef RP2xxx_SCHEDULER_PERF_DUMP
-#define RP2xxx_SCHEDULER_PERF_DUMP      0   // set to 1 to enable periodic per-task timing dump to console
-#endif
 #ifndef RP2xxx_MAX_TIMER_PROC
 #define RP2xxx_MAX_TIMER_PROC           32
 #endif
@@ -46,9 +43,6 @@
 #endif
 #ifndef RP2xxx_WATCHDOG_TIMEOUT
 #define RP2xxx_WATCHDOG_TIMEOUT         2000 // msec
-#endif
-#ifndef SCHEDULER_DEFAULT_LOOP_RATE
-#define SCHEDULER_DEFAULT_LOOP_RATE     50
 #endif
 #ifndef HAL_RP2XXX_ADC_TOTAL_SAMPLE_RATE_HZ
 // Total ADC conversion rate shared across all enabled RP ADC channels.

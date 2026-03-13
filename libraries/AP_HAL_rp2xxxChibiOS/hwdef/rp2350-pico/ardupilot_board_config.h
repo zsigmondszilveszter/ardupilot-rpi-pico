@@ -78,10 +78,6 @@
 
 #define HAL_STORAGE_SIZE                8192 // this is RAM mapped, set it carefully as it consumes RAM 
 
-#define SCHEDULER_DEFAULT_LOOP_RATE     125
-#define HAL_AHRS_EKF_TYPE_DEFAULT       3
-#define HAL_EKF_IMU_MASK_DEFAULT        1
-#define HAL_DEFAULT_INS_FAST_SAMPLE     0
 #define HAL_GYROFFT_ENABLED             0
 #define AP_TERRAIN_AVAILABLE            0
 #define HAL_PROXIMITY_ENABLED           0
@@ -108,11 +104,6 @@
  * Recommended Pico battery-voltage divider for 2S-4S LiPo sensing on this
  * ADC input: 470k / 100k with 100nF from the ADC pin to GND.
  */
-#define HAL_BATT_VOLT_PIN 0
-#define HAL_BATT_VOLT_SCALE 1.0f
-#define HAL_BATT_CURR_PIN -1
-#define HAL_BATT_CURR_SCALE 1.0f
-
 // ADC total conversion rate across all enabled RP ADC channels.
 // Example: 1000 Hz total with 2 channels -> about 500 samples/sec per pin.
 #define HAL_RP2XXX_ADC_TOTAL_SAMPLE_RATE_HZ 1000U

@@ -93,6 +93,26 @@ def load_env_vars(env):
         env.CHIBIOS_BUILD_FLAGS += ' USE_ASXOPT=-DCRT0_ENTRY_HOOK=TRUE'
 
 
+def setup_default_parameters(cfg, env, srcpath):
+    '''embed board-local or explicitly requested default parameters via ROMFS'''
+    defaults_path = None
+    if cfg.options.default_parameters:
+        defaults_path = cfg.options.default_parameters
+        cfg.msg('Default parameters', defaults_path, color='YELLOW')
+    else:
+        board_defaults = srcpath('libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/defaults.parm' % env.BOARD)
+        if os.path.exists(board_defaults):
+            defaults_path = board_defaults
+            cfg.msg('Default parameters', board_defaults, color='YELLOW')
+
+    if not defaults_path:
+        return
+
+    env.DEFAULT_PARAMETERS = defaults_path
+    env.ROMFS_FILES += [('defaults.parm', defaults_path)]
+    env.DEFINES += ['HAL_PARAM_DEFAULTS_PATH="@ROMFS/defaults.parm"']
+
+
 def configure(cfg):
     cfg.find_program("make", var="MAKE") # GNU make is required
     # ChibiOS config
@@ -135,9 +155,7 @@ def configureChibiOS(cfg):
     else:
         env.BOARD_MK = mk_common
 
-    if cfg.options.default_parameters:
-        cfg.msg('Default parameters', cfg.options.default_parameters, color='YELLOW')
-        env.DEFAULT_PARAMETERS = cfg.options.default_parameters
+    setup_default_parameters(cfg, env, srcpath)
 
     env.CHIBIOS_BUILD_FLAGS = ''
     load_env_vars(cfg.env)
