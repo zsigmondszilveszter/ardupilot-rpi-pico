@@ -39,15 +39,15 @@
 #define RP_CORE1_STACK_END                  __c1_main_stack_end__
 
 /*
- * Set the clock to 250MHz
+ * Set the clock to 276MHz
  *
- * PLL_SYS configuration: 12 MHz XOSC * 125 / 6 / 1 = 250 MHz
- * VCO = 1500 MHz (within 750-1600 MHz limit)
- * POSTDIV1=6, POSTDIV2=1 -> 250 MHz output
+ * PLL_SYS configuration: 12 MHz XOSC * 115 / 5 / 1 = 276 MHz
+ * VCO = 1380 MHz (within 750-1600 MHz limit)
+ * POSTDIV1=5, POSTDIV2=1 -> 276 MHz output
  */
 #define RP_PLL_SYS_REFDIV               1U
-#define RP_PLL_SYS_VCO_FREQ             1500000000U
-#define RP_PLL_SYS_POSTDIV1             6U
+#define RP_PLL_SYS_VCO_FREQ             1380000000U
+#define RP_PLL_SYS_POSTDIV1             5U
 #define RP_PLL_SYS_POSTDIV2             1U
 
 /*
