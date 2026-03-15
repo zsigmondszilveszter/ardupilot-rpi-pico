@@ -78,7 +78,7 @@ SECTIONS
 
 INCLUDE rules_stacks.ld
 INCLUDE rules_stacks_c1.ld
-INCLUDE ../common/rp2xxx_rules_code.ld
+INCLUDE rp2040_rules_code.ld
 INCLUDE rules_data.ld
 INCLUDE ../common/rp2xxx_rules_memory.ld
 

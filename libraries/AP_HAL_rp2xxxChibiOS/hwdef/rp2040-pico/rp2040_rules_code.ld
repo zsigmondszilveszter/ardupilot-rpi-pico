@@ -78,7 +78,6 @@ SECTIONS
         KEEP(*(.ram0_init))
         KEEP(*(.ram0_init.*))
         . = ALIGN(4);
-        /* rp2xxx crt1 copies [__ram0_init__, __ram0_clear__) from flash. */
         __ram0_clear__ = .;
         __ram0_noinit__ = .;
         __ram0_free__ = .;
