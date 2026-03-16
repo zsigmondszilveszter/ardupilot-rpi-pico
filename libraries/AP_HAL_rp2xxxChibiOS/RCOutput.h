@@ -30,15 +30,15 @@ private:
     };
     static const ChanMap chan_map[NUM_CHANNELS];
 
-    uint16_t    _pending[NUM_CHANNELS];     // latest write() value per channel
-    uint16_t    _last_sent[NUM_CHANNELS];   // value most recently pushed to hardware
+    uint16_t    _pending[NUM_CHANNELS];     // latest write() value per channel, in us
+    uint16_t    _last_sent[NUM_CHANNELS];   // value most recently pushed to hardware, in us
     bool        _corked = false;
     uint16_t    _default_rate_hz = 400;
     output_mode _chan_mode[NUM_CHANNELS];   // MODE_PWM_NORMAL / ONESHOT / ONESHOT125
 
     PWMConfig pwm_cfg[RP2xxx_NR_PWM_PERIPH_ENABLED];
-    // Preferred layout: PWMD1 → GPIO 2/3, PWMD2 → GPIO 20/21.
-    PWMDriver *pwm_drivers[RP2xxx_NR_PWM_PERIPH_ENABLED] = {&PWMD1, &PWMD2};
+    // Preferred layout: PWMD5 → GPIO 10/11, PWMD2 → GPIO 20/21.
+    PWMDriver *pwm_drivers[RP2xxx_NR_PWM_PERIPH_ENABLED] = {&PWMD5, &PWMD2};
 
     pwmcnt_t _scale_pulse(uint8_t chan, uint16_t period_us) const;
     void     _write_to_hw(uint8_t chan, uint16_t period_us);

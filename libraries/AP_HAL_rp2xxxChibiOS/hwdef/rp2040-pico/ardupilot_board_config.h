@@ -4,8 +4,8 @@
  * Board-specific ArduPilot policy overrides for the RP2040 Pico target.
  */
 
-#define RP2xxx_I2C1_SDA_GPIO_PIN        10U
-#define RP2xxx_I2C1_SCL_GPIO_PIN        11U
+#define RP2xxx_I2C1_SDA_GPIO_PIN        2U
+#define RP2xxx_I2C1_SCL_GPIO_PIN        3U
 
 #define RP2xxx_SPI0_MISO_GPIO_PIN       16U
 #define RP2xxx_SPI0_MOSI_GPIO_PIN       19U
@@ -30,8 +30,8 @@
 #define RP2xxx_RC_PROTOCOL              IBUS
 
 #define RP2xxx_NR_PWM_PERIPH_ENABLED    2
-#define RP2xxx_RC_OUT0                  2U
-#define RP2xxx_RC_OUT1                  3U
+#define RP2xxx_RC_OUT0                  10U
+#define RP2xxx_RC_OUT1                  11U
 #define RP2xxx_RC_OUT2                  20U
 #define RP2xxx_RC_OUT3                  21U
 

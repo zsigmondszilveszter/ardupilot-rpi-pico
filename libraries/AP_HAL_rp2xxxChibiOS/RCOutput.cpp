@@ -6,13 +6,14 @@ using namespace Rp2xxxChibiOS;
 
 constexpr uint8_t RCOutput::NUM_CHANNELS;
 
-// 1 MHz timer clock → 1 µs per tick; period_us maps directly to ticks
-#define PWM_TIMER_FREQ   1000000UL
-// 400 Hz for digital servos/ESCs: 2.5 ms period
-#define PWM_PERIOD_TICKS 2500
+// 2 MHz PWM counter keeps the RP2xxx divider within range at 276 MHz sysclk.
+// One tick is 0.5 us, so pulse widths are scaled explicitly below.
+#define PWM_TIMER_FREQ   2000000UL
+// 400 Hz standard fast PWM: 2.5 ms period
+#define PWM_PERIOD_TICKS 5000
 
-// chan 0 → PWMD1 ch A (GPIO 2)
-// chan 1 → PWMD1 ch B (GPIO 3)
+// chan 0 → PWMD5 ch A (GPIO 10)
+// chan 1 → PWMD5 ch B (GPIO 11)
 // chan 2 → PWMD2 ch A (GPIO 20)
 // chan 3 → PWMD2 ch B (GPIO 21)
 const RCOutput::ChanMap RCOutput::chan_map[NUM_CHANNELS] = {
@@ -66,15 +67,15 @@ uint32_t RCOutput::_min_period_us(uint8_t driver_idx) const {
     return min_p;
 }
 
-// Scale a standard 1000–2000 µs pulse to the mode's compressed range.
+// Scale a standard 1000–2000 us pulse to timer ticks for the active mode.
 pwmcnt_t RCOutput::_scale_pulse(uint8_t chan, uint16_t period_us) const {
     switch (_chan_mode[chan]) {
     case MODE_PWM_ONESHOT125:
-        return period_us >> 3;                  // ÷8: 1000→125, 2000→250 µs
+        return period_us >> 2;                  // 1000→250, 2000→500 ticks
     case MODE_PWM_ONESHOT:
-        return (uint32_t)period_us * 42 / 1000; // ×0.042: 1000→42, 2000→84 µs
+        return (uint32_t)period_us * 84 / 1000; // 1000→84, 2000→168 ticks
     default:
-        return period_us;
+        return period_us * 2U;                  // 0.5 us per tick
     }
 }
 
