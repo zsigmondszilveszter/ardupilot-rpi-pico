@@ -11,15 +11,15 @@ constexpr uint8_t RCOutput::NUM_CHANNELS;
 // 400 Hz for digital servos/ESCs: 2.5 ms period
 #define PWM_PERIOD_TICKS 2500
 
-// chan 0 → PWMD2 ch A (GPIO 20)
-// chan 1 → PWMD2 ch B (GPIO 21)
-// chan 2 → PWMD3 ch A (GPIO 22)
-// chan 3 → PWMD5 ch A (GPIO 26)
+// chan 0 → PWMD1 ch A (GPIO 2)
+// chan 1 → PWMD1 ch B (GPIO 3)
+// chan 2 → PWMD2 ch A (GPIO 20)
+// chan 3 → PWMD2 ch B (GPIO 21)
 const RCOutput::ChanMap RCOutput::chan_map[NUM_CHANNELS] = {
     {0, 0},
     {0, 1},
     {1, 0},
-    {2, 0},
+    {1, 1},
 };
 
 void RCOutput::init() {

@@ -23,6 +23,9 @@ constexpr uint32_t ADC_CLOCK_DIV =
 #ifdef RP2350
 constexpr uint32_t RP2350_PADS_GPIO_ISO_BIT = 1U << 8;
 #endif
+#ifdef HAL_BOARD_VOLTAGE_SCALE
+constexpr float BOARD_VOLTAGE_SCALING = HAL_BOARD_VOLTAGE_SCALE * VOLTAGE_SCALING;
+#endif
 
 // Hardware note for Pico/RP2xxx battery-voltage sensing:
 // for a simple and robust 2S-4S LiPo divider on the RP ADC input,
@@ -190,6 +193,15 @@ void AnalogIn::read_adc()
                 c->_add_value(avg);
             }
         }
+#ifdef HAL_BOARD_VOLTAGE_PIN
+        if (pin_config[i].analog_pin == HAL_BOARD_VOLTAGE_PIN) {
+#ifdef HAL_BOARD_VOLTAGE_SCALE
+            _board_voltage = avg * BOARD_VOLTAGE_SCALING;
+#else
+            _board_voltage = avg * VOLTAGE_SCALING;
+#endif
+        }
+#endif
     }
 }
 

@@ -111,13 +111,11 @@
 /**
  * PWM driver system settings
  * Slices chosen to match RC output pins:
+ *   GPIO 2/3   → PWM slice 1 (PWMD1)
  *   GPIO 20/21 → PWM slice 2 (PWMD2)
- *   GPIO 22    → PWM slice 3 (PWMD3)
- *   GPIO 26    → PWM slice 5 (PWMD5)
  */
+#define RP_PWM_USE_PWM1                     TRUE
 #define RP_PWM_USE_PWM2                     TRUE
-#define RP_PWM_USE_PWM3                     TRUE
-#define RP_PWM_USE_PWM5                     TRUE
 
 
 #endif /* MCUCONF_H */

@@ -52,6 +52,6 @@ private:
     ADCConversionGroup adcgrpcfg {};
 #endif
     uint32_t _last_run;
-    float _board_voltage = 3.3f;
+    float _board_voltage = 5.0f;
     HAL_Semaphore _semaphore;
 };

@@ -22,18 +22,18 @@
 #define RP2xxx_UART1_TX_GPIO_PIN        4U
 #define RP2xxx_UART1_RX_GPIO_PIN        5U
 #define RP2xxx_UART_TX_FIFO_SIZE        256
-#define RP2xxx_UART_RX_FIFO_SIZE        128
+#define RP2xxx_UART_RX_FIFO_SIZE        256
 #define RP2xxx_USB_TX_FIFO_SIZE         512
 #define RP2xxx_USB_RX_FIFO_SIZE         256
 
 #define RP2xxx_RC_RX_PIN                7U
 #define RP2xxx_RC_PROTOCOL              IBUS
 
-#define RP2xxx_NR_PWM_PERIPH_ENABLED    3
-#define RP2xxx_RC_OUT0                  20U
-#define RP2xxx_RC_OUT1                  21U
-#define RP2xxx_RC_OUT2                  22U
-#define RP2xxx_RC_OUT3                  26U
+#define RP2xxx_NR_PWM_PERIPH_ENABLED    2
+#define RP2xxx_RC_OUT0                  2U
+#define RP2xxx_RC_OUT1                  3U
+#define RP2xxx_RC_OUT2                  20U
+#define RP2xxx_RC_OUT3                  21U
 
 #define HAL_GPIO_A_LED_PIN              25U
 #define HAL_GPIO_B_LED_PIN              6U
@@ -90,15 +90,23 @@
 #define AP_SCRIPTING_ENABLED            0
 
 /*
- * Only expose GP27/ADC1 and GP28/ADC2 here.
- * GP26 is reserved elsewhere in this board definition.
- * Use logical analog pin IDs 0 and 1 instead of raw GPIO numbers.
+ * Expose GP26/ADC0, GP27/ADC1, and GP28/ADC2.
+ * Use logical analog pin IDs 0, 1, and 2 instead of raw GPIO numbers.
  */
 #define HAL_ANALOG_PINS \
-    { 1, 0, 3.3f / 4095.0f }, \
-    { 2, 1, 3.3f / 4095.0f }
+    { 0, 0, 3.3f / 4095.0f }, \
+    { 1, 1, 3.3f / 4095.0f }, \
+    { 2, 2, 3.3f / 4095.0f }
 
-#define HAL_RP2XXX_ADC_GPIO_PINS { 27, 28 }
+#define HAL_RP2XXX_ADC_GPIO_PINS { 26, 27, 28 }
+
+#define HAL_BATT_MONITOR_DEFAULT        3
+#define HAL_BATT_VOLT_PIN               0
+#define HAL_BATT_CURR_PIN               -1
+#define HAL_BATT_VOLT_SCALE             1.0f
+#define HAL_BATT_CURR_SCALE             1.0f
+#define HAL_BOARD_VOLTAGE_PIN           2
+#define HAL_BOARD_VOLTAGE_SCALE         5.7f
 
 /*
  * Recommended Pico battery-voltage divider for 2S-4S LiPo sensing on this
