@@ -9,6 +9,9 @@
 
 #include "HAL_rp2xxxChibiOS_Class.h"
 #include "AP_HAL_rp2xxxChibiOS_Private.h"
+#if HAL_WITH_DSP
+#include "DSP.h"
+#endif
 
 #include <AP_BoardConfig/AP_BoardConfig.h>
 #include <AP_InternalError/AP_InternalError.h>
@@ -36,6 +39,9 @@ static Rp2xxxChibiOS::Scheduler schedulerInstance;
 static Rp2xxxChibiOS::Util utilInstance;
 // static OpticalFlow opticalFlowDriver;
 // static Flash flashDriver;
+#if HAL_WITH_DSP
+static Rp2xxxChibiOS::DSP dspDriver;
+#endif
 
 HAL_Rp2xxxChibiOS::HAL_Rp2xxxChibiOS() :
     AP_HAL::HAL(
@@ -66,7 +72,7 @@ HAL_Rp2xxxChibiOS::HAL_Rp2xxxChibiOS() :
         nullptr, /* no SIMState */
 #endif
 #if HAL_WITH_DSP
-        nullptr, /* no DSP */
+        &dspDriver,
 #endif
         nullptr)    // no CAN
 {}

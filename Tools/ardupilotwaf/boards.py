@@ -1323,6 +1323,12 @@ class rp2350ChibiOS(rp2xxxChibiOS):
             'libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/RP2350_FLASH.ld' % self.name
         ).abspath()
         super(rp2350ChibiOS, self).configure_env(cfg, env)
+        env.INCLUDES += [
+            cfg.srcnode.find_dir('libraries/AP_GyroFFT/CMSIS_5/include').abspath(),
+        ]
+        env.DEFINES.update(
+            ARM_MATH_CM33 = 1,
+        )
 
 class esp32s3(esp32):
     abstract = True

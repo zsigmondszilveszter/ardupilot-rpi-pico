@@ -78,7 +78,8 @@
 
 #define HAL_STORAGE_SIZE                8192 // this is RAM mapped, set it carefully as it consumes RAM 
 
-#define HAL_GYROFFT_ENABLED             0
+#define HAL_WITH_DSP                    1
+#define HAL_GYROFFT_ENABLED             1
 #define AP_TERRAIN_AVAILABLE            0
 #define HAL_PROXIMITY_ENABLED           0
 #define AP_BEACON_ENABLED               0

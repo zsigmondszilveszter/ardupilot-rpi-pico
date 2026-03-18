@@ -6,6 +6,7 @@ from waflib.TaskGen import before_method, feature
 import os
 import pickle
 import re
+import shutil
 
 
 _dynamic_env_data = {}
@@ -213,6 +214,15 @@ def buildChibiOS(bld):
 
     
     ch_task.name = "ChibiOS_lib"
+    DSP_LIBS = {
+        'rp2350' : 'libarm_cortexM33lf_math.a',
+    }
+    if bld.env.RP_MCU in DSP_LIBS:
+        libname = DSP_LIBS[bld.env.RP_MCU]
+        os.makedirs(bld.env.BUILDROOT, exist_ok=True)
+        shutil.copyfile(os.path.join(bld.env.SRCROOT, 'libraries/AP_GyroFFT/CMSIS_5/lib', libname),
+                        os.path.join(bld.env.BUILDROOT, 'libDSP.a'))
+        bld.env.LIB += ['DSP']
     bld.env.LIB += ['ch']
     bld.env.LIBPATH += ['modules/rp2xxxChibiOS/']
     if bld.env.ENABLE_CRASHDUMP:
