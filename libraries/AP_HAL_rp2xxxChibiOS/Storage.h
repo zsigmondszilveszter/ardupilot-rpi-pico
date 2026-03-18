@@ -28,6 +28,7 @@ private:
     uint32_t _dirty_mask;          // 1 bit per line (4 lines)
     int _storage_fd = -1;
     bool _initialised = false;
+    bool _write_error_logged = false;
     HAL_Semaphore sem;
     uint8_t tmpline[RP2xxx_STORAGE_LINE_SIZE];
     uint32_t _last_empty_ms = 0;

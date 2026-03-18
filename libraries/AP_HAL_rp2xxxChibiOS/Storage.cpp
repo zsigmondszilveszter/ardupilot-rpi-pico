@@ -23,6 +23,7 @@ void Storage::_storage_open(void)
 
     _storage_fd = AP::FS().open(HAL_STORAGE_FILE, O_RDWR|O_CREAT);
     if (_storage_fd == -1) {
+        hal.console->printf("Storage: open failed for %s (errno=%d)\n", HAL_STORAGE_FILE, errno);
         return;
     }
 
@@ -31,18 +32,23 @@ void Storage::_storage_open(void)
     // read existing content
     ssize_t ret = AP::FS().read(_storage_fd, _buffer, sizeof(_buffer));
     if (ret < 0) {
+        hal.console->printf("Storage: read failed (errno=%d), treating as empty\n", errno);
         ret = 0;
     }
+    hal.console->printf("Storage: opened %s, read %d bytes\n", HAL_STORAGE_FILE, (int)ret);
 
     // pre-fill file to full size if shorter
     if ((size_t)ret < sizeof(_buffer)) {
+        hal.console->printf("Storage: extending file from %d to %u bytes\n", (int)ret, (unsigned)sizeof(_buffer));
         if (AP::FS().lseek(_storage_fd, ret, SEEK_SET) != ret ||
             AP::FS().write(_storage_fd, &_buffer[ret], sizeof(_buffer) - ret) != (ssize_t)(sizeof(_buffer) - ret)) {
+            hal.console->printf("Storage: pre-fill write failed (errno=%d)\n", errno);
             AP::FS().close(_storage_fd);
             _storage_fd = -1;
             return;
         }
         if (AP::FS().fsync(_storage_fd) != 0) {
+            hal.console->printf("Storage: pre-fill fsync failed (errno=%d)\n", errno);
             AP::FS().close(_storage_fd);
             _storage_fd = -1;
             return;
@@ -51,6 +57,7 @@ void Storage::_storage_open(void)
 
     _dirty_mask = 0;
     _initialised = true;
+    hal.console->printf("Storage: initialised OK\n");
 }
 
 void Storage::_mark_dirty(uint16_t loc, uint16_t length)
@@ -128,14 +135,27 @@ void Storage::_timer_tick(void)
     // write to file
     uint32_t offset = RP2xxx_STORAGE_LINE_SIZE * i;
     if (AP::FS().lseek(_storage_fd, offset, SEEK_SET) != (off_t)offset) {
+        if (!_write_error_logged) {
+            hal.console->printf("Storage: lseek failed at offset %u (errno=%d)\n", (unsigned)offset, errno);
+            _write_error_logged = true;
+        }
         return;
     }
     if (AP::FS().write(_storage_fd, tmpline, RP2xxx_STORAGE_LINE_SIZE) != RP2xxx_STORAGE_LINE_SIZE) {
+        if (!_write_error_logged) {
+            hal.console->printf("Storage: write failed for line %u (errno=%d)\n", (unsigned)i, errno);
+            _write_error_logged = true;
+        }
         return;
     }
     if (AP::FS().fsync(_storage_fd) != 0) {
+        if (!_write_error_logged) {
+            hal.console->printf("Storage: fsync failed for line %u (errno=%d)\n", (unsigned)i, errno);
+            _write_error_logged = true;
+        }
         return;
     }
+    _write_error_logged = false;
 
     // clear dirty bit if buffer hasn't changed since we copied it
     WITH_SEMAPHORE(sem);
@@ -146,8 +166,24 @@ void Storage::_timer_tick(void)
 
 bool Storage::healthy(void)
 {
-    return _initialised && (_last_empty_ms != 0) &&
-           (AP_HAL::millis() - _last_empty_ms < 30000U);
+    if (!_initialised) {
+        return false;
+    }
+    if (_last_empty_ms == 0) {
+        // Never seen a clean dirty mask yet — storage ticked but no flush cycle completed,
+        // or _timer_tick has not run with an empty dirty mask even once.
+        hal.console->printf("Storage: unhealthy - not yet flushed (fd=%d dirty=0x%lx)\n",
+                            _storage_fd, (unsigned long)_dirty_mask);
+        return false;
+    }
+    uint32_t now = AP_HAL::millis();
+    uint32_t age = now - _last_empty_ms;
+    if (age >= 30000U) {
+        hal.console->printf("Storage: unhealthy - last flush was %lums ago (dirty=0x%lx)\n",
+                            (unsigned long)age, (unsigned long)_dirty_mask);
+        return false;
+    }
+    return true;
 }
 
 #endif // CONFIG_HAL_BOARD == HAL_BOARD_RP2xxxCHIBIOS
