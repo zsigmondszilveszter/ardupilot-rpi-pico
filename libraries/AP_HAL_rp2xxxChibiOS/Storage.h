@@ -17,6 +17,7 @@ public:
     void init() override {}
     void read_block(void *dst, uint16_t src, size_t n) override;
     void write_block(uint16_t dst, const void* src, size_t n) override;
+    bool erase(void) override;
     void _timer_tick(void) override;
     bool healthy(void) override;
 
@@ -28,7 +29,9 @@ private:
     uint32_t _dirty_mask;          // 1 bit per line (4 lines)
     int _storage_fd = -1;
     bool _initialised = false;
+    bool _buffer_loaded = false;
     bool _write_error_logged = false;
+    uint8_t _write_fail_count = 0;
     HAL_Semaphore sem;
     uint8_t tmpline[RP2xxx_STORAGE_LINE_SIZE];
     uint32_t _last_empty_ms = 0;
