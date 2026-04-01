@@ -1,5 +1,4 @@
 #include <AP_HAL/AP_HAL.h>
-#include "hal.h"
 #include <AP_HAL_rp2xxxChibiOS/hwdef/common/rp2xxx_util.h>
 
 void setup();

@@ -21,8 +21,8 @@
 #define RP2xxx_UART0_RX_GPIO_PIN        1U
 #define RP2xxx_UART1_TX_GPIO_PIN        4U
 #define RP2xxx_UART1_RX_GPIO_PIN        5U
-#define RP2xxx_UART_TX_FIFO_SIZE        128
-#define RP2xxx_UART_RX_FIFO_SIZE        128
+#define RP2xxx_UART_TX_FIFO_SIZE        256
+#define RP2xxx_UART_RX_FIFO_SIZE        256
 #define RP2xxx_USB_TX_FIFO_SIZE         512
 #define RP2xxx_USB_RX_FIFO_SIZE         256
 

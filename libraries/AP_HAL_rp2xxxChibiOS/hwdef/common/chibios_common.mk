@@ -203,6 +203,10 @@ POST_MAKE_ALL_RULE_HOOK:
 
 $(LIBCC_OBJS) $(OBJS): | $(BUILDDIR) $(OBJDIR) $(LSTDIR)
 
+# rp_bootrom.c performs fixed-address boot ROM lookups that can trigger a
+# false positive -Warray-bounds diagnostic on newer GCC versions.
+$(OBJDIR)/rp_bootrom.o: CFLAGS += -Wno-array-bounds
+
 $(BUILDDIR):
 ifneq ($(USE_VERBOSE_COMPILE),yes)
 	@echo Compiler Options

@@ -17,6 +17,10 @@
 
 #include "hal.h"
 
+#define SCB_CPACR_REG (*(volatile uint32_t *)0xE000ED88U)
+#define RP2350_CPACR_CP10_CP11_FULL_ACCESS 0x00F00000U
+#define RP2350_CPACR_CP4_FULL_ACCESS       0x0000C300U
+
 /*===========================================================================*/
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
@@ -48,6 +52,8 @@
  */
 void __early_init(void) {
 //  rp_gpio_init();
+    /* Disable the bootrom watchdog. */
+    WATCHDOG->CLR.CTRL = WATCHDOG_CTRL_ENABLE;
 }
 
 void __late_init(void) {
@@ -55,6 +61,10 @@ void __late_init(void) {
    * Match the RP2040 shim pattern: perform coprocessor-specific init after
    * crt0 has completed core/FPU setup.
    */
+  SCB_CPACR_REG |= RP2350_CPACR_CP10_CP11_FULL_ACCESS |
+                   RP2350_CPACR_CP4_FULL_ACCESS;
+  __asm volatile ("dsb");
+  __asm volatile ("isb");
   __asm volatile ("mrc p4,#0,r0,c0,c0,#1" : : : "r0");
   halInit();
   chSysInit();

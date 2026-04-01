@@ -136,6 +136,7 @@ void HAL_Rp2xxxChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
     #if defined(HAVE_FILESYSTEM_SUPPORT)
         AP::FS().retry_mount();
     #endif
+    hal.storage->init();
     
     callbacks->setup();
     schedulerInstance.set_system_initialized();

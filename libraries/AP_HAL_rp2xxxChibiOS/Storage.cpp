@@ -12,18 +12,53 @@ using namespace Rp2xxxChibiOS;
 
 extern const AP_HAL::HAL& hal;
 
-void Storage::_storage_open(void)
+static constexpr uint32_t STORAGE_OPEN_RETRY_MS = 3000;
+static constexpr uint16_t STORAGE_OPEN_LOG_EVERY_NTH_RETRY = 15;
+
+void Storage::init(void)
+{
+    const uint32_t start_ms = AP_HAL::millis();
+    while (!_initialised && AP_HAL::millis() - start_ms < 4000U) {
+        _storage_open(true);
+        if (_initialised) {
+            break;
+        }
+        hal.scheduler->delay(100);
+    }
+}
+
+void Storage::_storage_open(bool force_retry)
 {
     if (_initialised) {
         return;
     }
+
+    const uint32_t now = AP_HAL::millis();
+    if (!force_retry &&
+        _last_open_attempt_ms != 0 &&
+        now - _last_open_attempt_ms < STORAGE_OPEN_RETRY_MS) {
+        return;
+    }
+    _last_open_attempt_ms = now;
+
+    const auto note_failure = [&](const char *step, int err) {
+        _open_fail_count++;
+        const bool should_log = !_open_failed ||
+            (_open_fail_count % STORAGE_OPEN_LOG_EVERY_NTH_RETRY) == 0;
+        _open_failed = true;
+        if (should_log) {
+            hal.console->printf("Storage: %s failed for %s (errno=%d, retry=%u)\n",
+                                step, HAL_STORAGE_FILE, err,
+                                (unsigned)_open_fail_count);
+        }
+    };
 
     // ensure APM directory exists
     AP::FS().mkdir("/APM");
 
     _storage_fd = AP::FS().open(HAL_STORAGE_FILE, O_RDWR|O_CREAT);
     if (_storage_fd == -1) {
-        hal.console->printf("Storage: open failed for %s (errno=%d)\n", HAL_STORAGE_FILE, errno);
+        note_failure("open", errno);
         return;
     }
 
@@ -33,7 +68,7 @@ void Storage::_storage_open(void)
 
         ssize_t ret = AP::FS().read(_storage_fd, _buffer, sizeof(_buffer));
         if (ret < 0) {
-            hal.console->printf("Storage: read failed (errno=%d), treating as empty\n", errno);
+            note_failure("read", errno);
             ret = 0;
         }
         hal.console->printf("Storage: opened %s, read %d bytes\n", HAL_STORAGE_FILE, (int)ret);
@@ -43,13 +78,13 @@ void Storage::_storage_open(void)
             hal.console->printf("Storage: extending file from %d to %u bytes\n", (int)ret, (unsigned)sizeof(_buffer));
             if (AP::FS().lseek(_storage_fd, ret, SEEK_SET) != ret ||
                 AP::FS().write(_storage_fd, &_buffer[ret], sizeof(_buffer) - ret) != (ssize_t)(sizeof(_buffer) - ret)) {
-                hal.console->printf("Storage: pre-fill write failed (errno=%d)\n", errno);
+                note_failure("pre-fill write", errno);
                 AP::FS().close(_storage_fd);
                 _storage_fd = -1;
                 return;
             }
             if (AP::FS().fsync(_storage_fd) != 0) {
-                hal.console->printf("Storage: pre-fill fsync failed (errno=%d)\n", errno);
+                note_failure("pre-fill fsync", errno);
                 AP::FS().close(_storage_fd);
                 _storage_fd = -1;
                 return;
@@ -66,6 +101,12 @@ void Storage::_storage_open(void)
     }
 
     _initialised = true;
+    if (_open_failed) {
+        hal.console->printf("Storage: recovered after %u failed retries\n",
+                            (unsigned)_open_fail_count);
+        _open_failed = false;
+        _open_fail_count = 0;
+    }
     hal.console->printf("Storage: initialised OK\n");
 }
 
@@ -203,7 +244,17 @@ void Storage::_timer_tick(void)
 
 bool Storage::erase(void)
 {
-    _storage_open();
+    // Firmware-change erase happens very early in boot. On RP2xxx the backing
+    // store is the SD-backed storage file, so do a bounded synchronous retry
+    // here instead of relying on the later timer-driven reopen path.
+    const uint32_t start_ms = AP_HAL::millis();
+    while (!_initialised && AP_HAL::millis() - start_ms < 4000U) {
+        _storage_open(true);
+        if (_initialised) {
+            break;
+        }
+        hal.scheduler->delay(100);
+    }
     if (!_initialised) {
         return false;
     }

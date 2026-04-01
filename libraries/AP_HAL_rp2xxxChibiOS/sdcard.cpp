@@ -51,6 +51,7 @@ bool sdcard_init()
         printf("No sdcard SPI device found\n");
         return false;
     }
+    printf("sdcard_init: got SPI device for sdcard\n");
     device->set_slowdown(sd_slowdown);
 
     if (MMCD1.buffer == nullptr) {
@@ -67,12 +68,21 @@ bool sdcard_init()
 
     const uint8_t tries = 3;
     for (uint8_t i = 0; i < tries; i++) {
+        printf("sdcard_init: attempt %u/%u starting mmc\n",
+               (unsigned)(i + 1), (unsigned)tries);
         mmcStart(&MMCD1, &mmcconfig);
-        if (mmcConnect(&MMCD1) == HAL_FAILED) {
+        const bool connect_ok = (mmcConnect(&MMCD1) == HAL_SUCCESS);
+        printf("sdcard_init: attempt %u/%u mmcConnect=%s\n",
+               (unsigned)(i + 1), (unsigned)tries,
+               connect_ok ? "OK" : "FAIL");
+        if (!connect_ok) {
             mmcStop(&MMCD1);
             continue;
         }
-        if (f_mount(&SDC_FS, "/", 1) != FR_OK) {
+        const FRESULT mount_res = f_mount(&SDC_FS, "/", 1);
+        printf("sdcard_init: attempt %u/%u f_mount=%d\n",
+               (unsigned)(i + 1), (unsigned)tries, (int)mount_res);
+        if (mount_res != FR_OK) {
             mmcDisconnect(&MMCD1);
             mmcStop(&MMCD1);
             continue;
@@ -81,6 +91,7 @@ bool sdcard_init()
         return true;
     }
 
+    printf("sdcard_init: failed after %u attempts\n", (unsigned)tries);
     sdcard_running = false;
     return false;
 }

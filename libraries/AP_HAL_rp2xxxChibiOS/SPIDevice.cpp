@@ -56,13 +56,22 @@ Rp2xxxChibiOS::SPIDesc SPIDeviceManager::device_table[] = { HAL_SPI_DEVICE_LIST 
 
 SPIBus::SPIBus(uint8_t _bus) :
     DeviceBus(APM_SPI_PRIORITY),
-    bus(_bus)
+    bus(_bus),
+    spicfg{},
+    spi_started(false),
+    slowdown(0)
 {}
 
 
 SPIDevice::SPIDevice(SPIBus &_bus, SPIDesc &_device_desc)
     : bus(_bus)
     , device_desc(_device_desc)
+    , frequency(0)
+    , freq_flag(0)
+    , freq_flag_low(0)
+    , freq_flag_high(0)
+    , pname(nullptr)
+    , cs_forced(false)
 {
     set_device_bus(spi_devices[_bus.bus].busid);
     set_device_address(_device_desc.device);

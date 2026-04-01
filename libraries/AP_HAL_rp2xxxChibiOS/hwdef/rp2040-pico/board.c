@@ -55,9 +55,6 @@ void __early_init(void) {
 }
 
 void __late_init(void) {
-  /* Initialise ROM float table here, not in __early_init:
-   * __early_init runs before .bss is zeroed, so sf_table (which lives in
-   * .bss) would be wiped out immediately after being filled. */
   __aeabi_float_init();
   __aeabi_double_init();
   halInit();

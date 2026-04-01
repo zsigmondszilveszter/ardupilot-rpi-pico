@@ -14,7 +14,7 @@
 class Rp2xxxChibiOS::Storage : public AP_HAL::Storage {
 public:
     Storage() {}
-    void init() override {}
+    void init() override;
     void read_block(void *dst, uint16_t src, size_t n) override;
     void write_block(uint16_t dst, const void* src, size_t n) override;
     bool erase(void) override;
@@ -22,7 +22,7 @@ public:
     bool healthy(void) override;
 
 private:
-    void _storage_open(void);
+    void _storage_open(bool force_retry = false);
     void _mark_dirty(uint16_t loc, uint16_t length);
 
     uint8_t _buffer[HAL_STORAGE_SIZE] __attribute__((aligned(4)));
@@ -35,4 +35,7 @@ private:
     HAL_Semaphore sem;
     uint8_t tmpline[RP2xxx_STORAGE_LINE_SIZE];
     uint32_t _last_empty_ms = 0;
+    uint32_t _last_open_attempt_ms = 0;
+    uint16_t _open_fail_count = 0;
+    bool _open_failed = false;
 };
