@@ -13,8 +13,7 @@
 #define RP2xxx_SPI1_MISO_GPIO_PIN       12U
 #define RP2xxx_SPI1_MOSI_GPIO_PIN       15U
 #define RP2xxx_SPI1_SCK_GPIO_PIN        14U
-#define RP2xxx_SPI_CS_FOR_MPU9250       13U
-#define RP2xxx_SPI_CS_FOR_MPU6500       8U
+#define RP2xxx_SPI_CS_FOR_IMU           13U
 #define RP2xxx_SPI_CS_FOR_SDCARD        17U
 
 #define RP2xxx_UART0_TX_GPIO_PIN        0U
@@ -29,11 +28,13 @@
 #define RP2xxx_RC_RX_PIN                7U
 #define RP2xxx_RC_PROTOCOL              IBUS
 
-#define RP2xxx_NR_PWM_PERIPH_ENABLED    2
-#define RP2xxx_RC_OUT0                  10U
-#define RP2xxx_RC_OUT1                  11U
-#define RP2xxx_RC_OUT2                  20U
-#define RP2xxx_RC_OUT3                  21U
+#define RP2xxx_NR_PWM_PERIPH_ENABLED    4
+#define RP2xxx_RC_OUT0                  8U
+#define RP2xxx_RC_OUT1                  10U
+#define RP2xxx_RC_OUT2                  11U
+#define RP2xxx_RC_OUT3                  20U
+#define RP2xxx_RC_OUT4                  21U
+#define RP2xxx_RC_OUT5                  22U
 
 #define HAL_GPIO_A_LED_PIN              25U
 #define HAL_GPIO_B_LED_PIN              6U
@@ -45,8 +46,7 @@
     {  HAL_GPIO_A_LED_PIN,         true, 0, HAL_GPIO_A_LED_PIN }, \
     {  HAL_GPIO_B_LED_PIN,         true, 0, HAL_GPIO_B_LED_PIN }, \
     {  HAL_GPIO_C_LED_PIN,         true, 0, HAL_GPIO_C_LED_PIN }, \
-    {  RP2xxx_SPI_CS_FOR_MPU9250, true, 0, RP2xxx_SPI_CS_FOR_MPU9250 }, \
-    {  RP2xxx_SPI_CS_FOR_MPU6500, true, 0, RP2xxx_SPI_CS_FOR_MPU6500 }, \
+    {  RP2xxx_SPI_CS_FOR_IMU,     true, 0, RP2xxx_SPI_CS_FOR_IMU }, \
     {  RP2xxx_SPI_CS_FOR_SDCARD,  true, 0, RP2xxx_SPI_CS_FOR_SDCARD } \
 }
 
@@ -64,11 +64,11 @@
 #define HAL_SPI_BUS_LIST {&SPID0,0},{&SPID1,1}
 #define HAL_SPI_DEVICE_MPU9250 SPIDesc("mpu9250", SPI_BUS_1, 1, \
     RP2xxx_SPI1_MISO_GPIO_PIN, RP2xxx_SPI1_MOSI_GPIO_PIN, \
-    RP2xxx_SPI1_SCK_GPIO_PIN, RP2xxx_SPI_CS_FOR_MPU9250, \
+    RP2xxx_SPI1_SCK_GPIO_PIN, RP2xxx_SPI_CS_FOR_IMU, \
     0, 1*SPI_MHZ, 9*SPI_MHZ)
 #define HAL_SPI_DEVICE_MPU6500 SPIDesc("mpu6500", SPI_BUS_1, 2, \
     RP2xxx_SPI1_MISO_GPIO_PIN, RP2xxx_SPI1_MOSI_GPIO_PIN, \
-    RP2xxx_SPI1_SCK_GPIO_PIN, RP2xxx_SPI_CS_FOR_MPU6500, \
+    RP2xxx_SPI1_SCK_GPIO_PIN, RP2xxx_SPI_CS_FOR_IMU, \
     0, 1*SPI_MHZ, 9*SPI_MHZ)
 #define HAL_SPI_DEVICE_SDCARD SPIDesc("sdcard", SPI_BUS_0, 3, \
     RP2xxx_SPI0_MISO_GPIO_PIN, RP2xxx_SPI0_MOSI_GPIO_PIN, \

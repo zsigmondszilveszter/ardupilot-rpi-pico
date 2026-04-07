@@ -20,7 +20,7 @@ class Rp2xxxChibiOS::RCOutput : public AP_HAL::RCOutput {
     void     set_default_rate(uint16_t rate_hz) override;
 private:
     // Total output channels = sum of channels actually used across all slices
-    static constexpr uint8_t NUM_CHANNELS = 4;
+    static constexpr uint8_t NUM_CHANNELS = 6;
 
     // Mapping from logical channel index to (driver_index, hw_channel).
     // Slices are non-contiguous so a simple chan/PWM_CHANNELS formula won't work.
@@ -37,8 +37,8 @@ private:
     output_mode _chan_mode[NUM_CHANNELS];   // MODE_PWM_NORMAL / ONESHOT / ONESHOT125
 
     PWMConfig pwm_cfg[RP2xxx_NR_PWM_PERIPH_ENABLED];
-    // Preferred layout: PWMD5 → GPIO 10/11, PWMD2 → GPIO 20/21.
-    PWMDriver *pwm_drivers[RP2xxx_NR_PWM_PERIPH_ENABLED] = {&PWMD5, &PWMD2};
+    // Layout: PWMD4 → GPIO 8, PWMD5 → GPIO 10/11, PWMD2 → GPIO 20/21, PWMD3 → GPIO 22.
+    PWMDriver *pwm_drivers[RP2xxx_NR_PWM_PERIPH_ENABLED] = {&PWMD4, &PWMD5, &PWMD2, &PWMD3};
 
     pwmcnt_t _scale_pulse(uint8_t chan, uint16_t period_us) const;
     void     _write_to_hw(uint8_t chan, uint16_t period_us);

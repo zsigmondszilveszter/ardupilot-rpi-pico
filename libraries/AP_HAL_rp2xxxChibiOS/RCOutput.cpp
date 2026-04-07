@@ -12,15 +12,19 @@ constexpr uint8_t RCOutput::NUM_CHANNELS;
 // 400 Hz standard fast PWM: 2.5 ms period
 #define PWM_PERIOD_TICKS 5000
 
-// chan 0 → PWMD5 ch A (GPIO 10)
-// chan 1 → PWMD5 ch B (GPIO 11)
-// chan 2 → PWMD2 ch A (GPIO 20)
-// chan 3 → PWMD2 ch B (GPIO 21)
+// chan 0 → PWMD4 ch A (GPIO 8)
+// chan 1 → PWMD5 ch A (GPIO 10)
+// chan 2 → PWMD5 ch B (GPIO 11)
+// chan 3 → PWMD2 ch A (GPIO 20)
+// chan 4 → PWMD2 ch B (GPIO 21)
+// chan 5 → PWMD3 ch A (GPIO 22)
 const RCOutput::ChanMap RCOutput::chan_map[NUM_CHANNELS] = {
     {0, 0},
-    {0, 1},
     {1, 0},
     {1, 1},
+    {2, 0},
+    {2, 1},
+    {3, 0},
 };
 
 void RCOutput::init() {
@@ -29,6 +33,8 @@ void RCOutput::init() {
     palSetLineMode(RP2xxx_RC_OUT1, PAL_MODE_ALTERNATE_PWM);
     palSetLineMode(RP2xxx_RC_OUT2, PAL_MODE_ALTERNATE_PWM);
     palSetLineMode(RP2xxx_RC_OUT3, PAL_MODE_ALTERNATE_PWM);
+    palSetLineMode(RP2xxx_RC_OUT4, PAL_MODE_ALTERNATE_PWM);
+    palSetLineMode(RP2xxx_RC_OUT5, PAL_MODE_ALTERNATE_PWM);
 
     memset(_pending,   0, sizeof(_pending));
     memset(_last_sent, 0, sizeof(_last_sent));
