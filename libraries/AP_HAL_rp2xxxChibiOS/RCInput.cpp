@@ -42,8 +42,8 @@ RCInput::RCInput(RCProtocol protocol) : AP_HAL::RCInput(),
 
 void RCInput::init()
 {
-    hal_lld_peripheral_reset(RESETS_ALLREG_PIO0);
-    hal_lld_peripheral_unreset(RESETS_ALLREG_PIO0);
+    rp_peripheral_reset(RESETS_ALLREG_PIO0);
+    rp_peripheral_unreset(RESETS_ALLREG_PIO0);
 
     if (_protocol == RCProtocol::IBUS) {
         open_ibus();
