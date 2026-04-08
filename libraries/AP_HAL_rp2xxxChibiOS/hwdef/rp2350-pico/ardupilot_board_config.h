@@ -28,12 +28,12 @@
 #define RP2xxx_RC_RX_PIN                7U
 #define RP2xxx_RC_PROTOCOL              IBUS
 
-#define RP2xxx_NR_PWM_PERIPH_ENABLED    4
+#define RP2xxx_MAX_RC_OUTPUTS           6U
 #define RP2xxx_RC_OUT0                  8U
 #define RP2xxx_RC_OUT1                  10U
-#define RP2xxx_RC_OUT2                  11U
-#define RP2xxx_RC_OUT3                  20U
-#define RP2xxx_RC_OUT4                  21U
+#define RP2xxx_RC_OUT2                  20U
+#define RP2xxx_RC_OUT3                  21U
+#define RP2xxx_RC_OUT4                  11U
 #define RP2xxx_RC_OUT5                  22U
 
 #define HAL_GPIO_A_LED_PIN              25U

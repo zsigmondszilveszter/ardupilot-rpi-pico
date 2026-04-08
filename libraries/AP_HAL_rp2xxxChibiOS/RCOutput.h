@@ -19,27 +19,27 @@ class Rp2xxxChibiOS::RCOutput : public AP_HAL::RCOutput {
     enum output_mode get_output_mode(uint32_t& mask) override;
     void     set_default_rate(uint16_t rate_hz) override;
 private:
-    // Total output channels = sum of channels actually used across all slices
-    static constexpr uint8_t NUM_CHANNELS = 6;
+    // Maximum logical RC outputs exposed by the board configuration.
+    static constexpr uint8_t NUM_CHANNELS = RP2xxx_MAX_RC_OUTPUTS;
 
     // Mapping from logical channel index to (driver_index, hw_channel).
-    // Slices are non-contiguous so a simple chan/PWM_CHANNELS formula won't work.
     struct ChanMap {
         uint8_t driver_idx;
         uint8_t hw_channel;
     };
-    static const ChanMap chan_map[NUM_CHANNELS];
+    ChanMap chan_map[NUM_CHANNELS] = {};
 
     uint16_t    _pending[NUM_CHANNELS];     // latest write() value per channel, in us
     uint16_t    _last_sent[NUM_CHANNELS];   // value most recently pushed to hardware, in us
     bool        _corked = false;
     uint16_t    _default_rate_hz = 400;
     output_mode _chan_mode[NUM_CHANNELS];   // MODE_PWM_NORMAL / ONESHOT / ONESHOT125
+    uint8_t     _num_drivers = 0;
 
-    PWMConfig pwm_cfg[RP2xxx_NR_PWM_PERIPH_ENABLED];
-    // Layout: PWMD4 → GPIO 8, PWMD5 → GPIO 10/11, PWMD2 → GPIO 20/21, PWMD3 → GPIO 22.
-    PWMDriver *pwm_drivers[RP2xxx_NR_PWM_PERIPH_ENABLED] = {&PWMD4, &PWMD5, &PWMD2, &PWMD3};
+    PWMConfig pwm_cfg[NUM_CHANNELS];
+    PWMDriver *pwm_drivers[NUM_CHANNELS] = {};
 
+    static PWMDriver *_slice_to_pwm_driver(uint8_t slice);
     pwmcnt_t _scale_pulse(uint8_t chan, uint16_t period_us) const;
     void     _write_to_hw(uint8_t chan, uint16_t period_us);
     uint32_t _min_period_us(uint8_t driver_idx) const;
