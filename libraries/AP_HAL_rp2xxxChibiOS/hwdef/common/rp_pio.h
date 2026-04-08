@@ -106,6 +106,8 @@ static inline void hw_xor_bits(io_rw_32 *addr, uint32_t mask) {
 /* FSTAT register */
 #define PIO_FSTAT_RXFULL_LSB   0u
 #define PIO_FSTAT_RXEMPTY_LSB  8u
+#define PIO_FSTAT_TXFULL_LSB   16u
+#define PIO_FSTAT_TXEMPTY_LSB  24u
 
 /* FDEBUG register */
 #define PIO_FDEBUG_RXSTALL_LSB  0u

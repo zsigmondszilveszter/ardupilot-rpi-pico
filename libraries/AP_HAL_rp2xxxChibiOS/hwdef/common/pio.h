@@ -431,6 +431,19 @@ static inline bool pio_sm_is_rx_fifo_empty(PIO pio, uint sm) {
     return (pio->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB + sm))) != 0;
 }
 
+/*! \brief Determine if a state machine's TX FIFO is full
+ *  \ingroup hardware_pio
+ *
+ * \param pio The PIO instance; either \ref pio0 or \ref pio1
+ * \param sm State machine index (0..3)
+ * \return true if the TX FIFO is full
+ */
+static inline bool pio_sm_is_tx_fifo_full(PIO pio, uint sm) {
+    check_pio_param(pio);
+    check_sm_param(sm);
+    return (pio->fstat & (1u << (PIO_FSTAT_TXFULL_LSB + sm))) != 0;
+}
+
 /*! \brief Return the number of elements currently in a state machine's RX FIFO
  *  \ingroup hardware_pio
  *
@@ -452,6 +465,13 @@ static inline char rc_rx_uart_pio_program_getc(PIO pio, uint sm) {
     while (pio_sm_is_rx_fifo_empty(pio, sm))
         chThdSleep(10);
     return (char)*rxfifo_shift;
+}
+
+static inline void pio_sm_put_blocking(PIO pio, uint sm, uint32_t data) {
+    while (pio_sm_is_tx_fifo_full(pio, sm)) {
+        chThdSleep(1);
+    }
+    pio->txf[sm] = data;
 }
 
 void pio_sm_set_consecutive_pindirs(PIO pio, uint sm, uint pin, uint count, bool is_out);

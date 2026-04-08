@@ -1,10 +1,15 @@
 
 #include "RCOutput.h"
 #include <AP_Math/AP_Math.h>
+#include "hwdef/common/oneshot_output.pio.h"
 
 using namespace Rp2xxxChibiOS;
 
 constexpr uint8_t RCOutput::NUM_CHANNELS;
+
+// PIO pulse timing base for OneShot/OneShot125.
+// At 2 MHz one state-machine cycle is 0.5 us.
+#define ONESHOT_PIO_FREQ 2000000UL
 
 // 2 MHz PWM counter keeps the RP2xxx divider within range at 276 MHz sysclk.
 // One tick is 0.5 us, so pulse widths are scaled explicitly below.
@@ -41,6 +46,17 @@ static constexpr uint8_t rc_out_pins[RP2xxx_MAX_RC_OUTPUTS] = {
 static inline uint8_t gpio_to_pwm_slice(uint8_t pin)
 {
     return (pin & 0x0FU) >> 1;
+}
+
+static inline uint32_t pio_pin_mode(PIO pio)
+{
+    return (pio == pio0 ? PAL_RP_IOCTRL_FUNCSEL_PIO0 : PAL_RP_IOCTRL_FUNCSEL_PIO1) |
+           PAL_RP_PAD_DRIVE8 | PAL_RP_PAD_SLEWFAST;
+}
+
+static inline uint32_t low_drive_pin_mode()
+{
+    return PAL_MODE_OUTPUT_PUSHPULL | PAL_RP_PAD_DRIVE8 | PAL_RP_PAD_SLEWFAST;
 }
 
 PWMDriver *RCOutput::_slice_to_pwm_driver(uint8_t slice) {
@@ -87,15 +103,16 @@ PWMDriver *RCOutput::_slice_to_pwm_driver(uint8_t slice) {
 }
 
 void RCOutput::init() {
-    // Configure GPIO pins to PWM alternate function
-    for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
-        palSetLineMode(rc_out_pins[i], PAL_MODE_ALTERNATE_PWM);
-    }
+    rp_peripheral_reset(RESETS_ALLREG_PIO0 | RESETS_ALLREG_PIO1);
+    rp_peripheral_unreset(RESETS_ALLREG_PIO0 | RESETS_ALLREG_PIO1);
 
     memset(_pending,   0, sizeof(_pending));
     memset(_last_sent, 0, sizeof(_last_sent));
     for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
         _chan_mode[i] = MODE_PWM_NORMAL;
+        _chan_freq_hz[i] = _default_rate_hz;
+        _pio_ready[i] = false;
+        palSetLineMode(rc_out_pins[i], PAL_MODE_ALTERNATE_PWM);
     }
 
     _num_drivers = 0;
@@ -123,6 +140,15 @@ void RCOutput::init() {
         chan_map[chan] = {driver_idx, hw_channel};
     }
 
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (chan < 4) {
+            pio_chan_map[chan] = {pio1, chan};
+        } else {
+            // Keep PIO0 SM0 free for RCInput SBUS/IBUS.
+            pio_chan_map[chan] = {pio0, static_cast<uint8_t>(chan - 3)};
+        }
+    }
+
     for (uint8_t i = 0; i < _num_drivers; i++) {
         pwm_cfg[i].frequency   = PWM_TIMER_FREQ;
         pwm_cfg[i].period      = PWM_PERIOD_TICKS;
@@ -138,12 +164,12 @@ void RCOutput::init() {
 uint32_t RCOutput::_min_period_us(uint8_t driver_idx) const {
     uint32_t min_p = 0;
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
-        if (chan_map[chan].driver_idx != driver_idx) {
+        if (chan_map[chan].driver_idx != driver_idx || _uses_pio(chan)) {
             continue;
         }
         uint32_t p = 0;
         switch (_chan_mode[chan]) {
-        case MODE_PWM_ONESHOT:    p = 100;  break;  // max pulse 84 µs + margin
+        case MODE_PWM_ONESHOT:    p = 2100; break;  // max pulse 2000 us + margin
         case MODE_PWM_ONESHOT125: p = 300;  break;  // max pulse 250 µs + margin
         default:                  p = 0;    break;
         }
@@ -160,13 +186,38 @@ pwmcnt_t RCOutput::_scale_pulse(uint8_t chan, uint16_t period_us) const {
     case MODE_PWM_ONESHOT125:
         return period_us >> 2;                  // 1000→250, 2000→500 ticks
     case MODE_PWM_ONESHOT:
-        return (uint32_t)period_us * 84 / 1000; // 1000→84, 2000→168 ticks
+        return period_us * 2U;                  // 0.5 us per tick
     default:
         return period_us * 2U;                  // 0.5 us per tick
     }
 }
 
+uint32_t RCOutput::_scale_oneshot_pio_ticks(uint8_t chan, uint16_t period_us) const
+{
+    uint32_t pulse_us = period_us;
+    if (_chan_mode[chan] == MODE_PWM_ONESHOT125) {
+        pulse_us = pulse_us / 8U;
+        if (pulse_us == 0) {
+            pulse_us = 1;
+        }
+    }
+
+    // Program high time is approximately (x + 2) state-machine cycles.
+    const uint64_t ticks = ((uint64_t)pulse_us * ONESHOT_PIO_FREQ) / 1000000ULL;
+    return ticks > 2 ? (uint32_t)(ticks - 2ULL) : 0U;
+}
+
 void RCOutput::_write_to_hw(uint8_t chan, uint16_t period_us) {
+    if (_uses_pio(chan)) {
+        if (!_pio_ready[chan] && !_init_pio_channel(chan)) {
+            return;
+        }
+        pio_sm_put_blocking(pio_chan_map[chan].pio,
+                            pio_chan_map[chan].sm,
+                            _scale_oneshot_pio_ticks(chan, period_us));
+        _last_sent[chan] = period_us;
+        return;
+    }
     _last_sent[chan] = period_us;
     const uint8_t di = chan_map[chan].driver_idx;
     const uint8_t hw_ch = chan_map[chan].hw_channel;
@@ -179,6 +230,10 @@ void RCOutput::set_freq(uint32_t chmask, uint16_t freq_hz) {
     }
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
         if (!(chmask & (1U << chan))) {
+            continue;
+        }
+        _chan_freq_hz[chan] = freq_hz;
+        if (_uses_pio(chan)) {
             continue;
         }
         const uint8_t di = chan_map[chan].driver_idx;
@@ -194,12 +249,21 @@ uint16_t RCOutput::get_freq(uint8_t chan) {
     if (chan >= NUM_CHANNELS) {
         return 0;
     }
+    if (_uses_pio(chan)) {
+        return _chan_freq_hz[chan];
+    }
     const uint8_t di = chan_map[chan].driver_idx;
     return PWM_TIMER_FREQ / pwm_drivers[di]->period;
 }
 
 void RCOutput::enable_ch(uint8_t chan) {
     if (chan >= NUM_CHANNELS) {
+        return;
+    }
+    if (_uses_pio(chan)) {
+        if (_pio_ready[chan] || _init_pio_channel(chan)) {
+            pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, true);
+        }
         return;
     }
     pwmEnableChannel(pwm_drivers[chan_map[chan].driver_idx],
@@ -209,6 +273,13 @@ void RCOutput::enable_ch(uint8_t chan) {
 
 void RCOutput::disable_ch(uint8_t chan) {
     if (chan >= NUM_CHANNELS) {
+        return;
+    }
+    if (_uses_pio(chan)) {
+        if (_pio_ready[chan]) {
+            pio_sm_exec(pio_chan_map[chan].pio, pio_chan_map[chan].sm, pio_encode_set(pio_pins, 0));
+            pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, false);
+        }
         return;
     }
     pwmDisableChannel(pwm_drivers[chan_map[chan].driver_idx],
@@ -221,7 +292,11 @@ void RCOutput::write(uint8_t chan, uint16_t period_us) {
     }
     _pending[chan] = period_us;
     if (!_corked) {
-        _write_to_hw(chan, period_us);
+        if (_uses_pio(chan)) {
+            _send_pio_outputs(1U << chan);
+        } else {
+            _write_to_hw(chan, period_us);
+        }
     }
 }
 
@@ -233,10 +308,24 @@ void RCOutput::push() {
     if (!_corked) {
         return;
     }
+    bool pio_update = false;
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (_uses_pio(chan)) {
+            pio_update = true;
+            continue;
+        }
         if (_pending[chan] != _last_sent[chan]) {
             _write_to_hw(chan, _pending[chan]);
         }
+    }
+    if (pio_update) {
+        uint32_t pio_mask = 0;
+        for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+            if (_uses_pio(chan)) {
+                pio_mask |= (1U << chan);
+            }
+        }
+        _send_pio_outputs(pio_mask);
     }
     _corked = false;
 }
@@ -248,7 +337,26 @@ void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
             continue;
         }
         _chan_mode[chan] = mode;
+        if (_uses_pio_mode(mode)) {
+            _pio_mode_mask |= (1U << chan);
+        } else {
+            _pio_mode_mask &= ~(1U << chan);
+        }
         driver_affected[chan_map[chan].driver_idx] = true;
+        _set_pin_mode(chan);
+        if (_uses_pio(chan)) {
+            if (_init_pio_channel(chan)) {
+                pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, true);
+            }
+            pwmDisableChannel(pwm_drivers[chan_map[chan].driver_idx],
+                              chan_map[chan].hw_channel);
+        } else {
+            if (_pio_ready[chan]) {
+                pio_sm_exec(pio_chan_map[chan].pio, pio_chan_map[chan].sm, pio_encode_set(pio_pins, 0));
+                pio_sm_clear_fifos(pio_chan_map[chan].pio, pio_chan_map[chan].sm);
+                pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, false);
+            }
+        }
     }
     for (uint8_t di = 0; di < ARRAY_SIZE(pwm_drivers); di++) {
         if (!driver_affected[di] || pwm_drivers[di] == nullptr) {
@@ -298,4 +406,70 @@ uint16_t RCOutput::read(uint8_t chan) {
 void RCOutput::read(uint16_t* period_us, uint8_t len) {
     len = MIN(len, NUM_CHANNELS);
     memcpy(period_us, _pending, len * sizeof(_pending[0]));
+}
+
+bool RCOutput::_uses_pio_mode(output_mode mode)
+{
+    return mode == MODE_PWM_ONESHOT || mode == MODE_PWM_ONESHOT125;
+}
+
+bool RCOutput::_uses_pio(uint8_t chan) const
+{
+    return (_pio_mode_mask & (1U << chan)) != 0;
+}
+
+void RCOutput::_send_pio_outputs(uint32_t chmask)
+{
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (!_uses_pio(chan) || !(chmask & (1U << chan))) {
+            continue;
+        }
+        _write_to_hw(chan, _pending[chan]);
+    }
+}
+
+bool RCOutput::_init_pio_channel(uint8_t chan)
+{
+    if (_pio_ready[chan]) {
+        return true;
+    }
+
+    const PIO pio = pio_chan_map[chan].pio;
+    const uint8_t pio_idx = pio_get_index(pio);
+    if (_pio_offset[pio_idx] == INVALID_PIO_OFFSET) {
+        const uint offset = pio_add_program(pio, &oneshot_output_pio_program);
+        if (offset >= PIO_INSTRUCTION_COUNT) {
+            return false;
+        }
+        _pio_offset[pio_idx] = offset;
+    }
+
+    const uint8_t sm = pio_chan_map[chan].sm;
+    const uint8_t pin = rc_out_pins[chan];
+    palSetLineMode(pin, low_drive_pin_mode());
+    palClearLine(pin);
+
+    pio_sm_config c = pio_get_default_sm_config();
+    sm_config_set_wrap(&c,
+                       _pio_offset[pio_idx] + oneshot_output_wrap_target,
+                       _pio_offset[pio_idx] + oneshot_output_wrap);
+    sm_config_set_set_pins(&c, pin, 1);
+    sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / ONESHOT_PIO_FREQ);
+    pio_sm_init(pio, sm, _pio_offset[pio_idx], &c);
+    palSetLineMode(pin, pio_pin_mode(pio));
+    pio_sm_set_enabled(pio, sm, true);
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 1));
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pins, 0));
+
+    _pio_ready[chan] = true;
+    return true;
+}
+
+void RCOutput::_set_pin_mode(uint8_t chan)
+{
+    if (_uses_pio(chan)) {
+        (void)_init_pio_channel(chan);
+    } else {
+        palSetLineMode(rc_out_pins[chan], PAL_MODE_ALTERNATE_PWM);
+    }
 }
