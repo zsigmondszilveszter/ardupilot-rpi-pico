@@ -1,4 +1,4 @@
-
+#include <AP_HAL/AP_HAL.h>
 #include "RCOutput.h"
 #include <AP_Math/AP_Math.h>
 #include "hwdef/common/dshot_output.pio.h"
@@ -7,6 +7,7 @@
 using namespace Rp2xxxChibiOS;
 
 constexpr uint8_t RCOutput::NUM_CHANNELS;
+extern const AP_HAL::HAL &hal;
 
 // PIO pulse timing base for OneShot/OneShot125.
 // At 2 MHz one state-machine cycle is 0.5 us.
@@ -108,12 +109,17 @@ void RCOutput::init() {
     rp_peripheral_reset(RESETS_ALLREG_PIO0 | RESETS_ALLREG_PIO1);
     rp_peripheral_unreset(RESETS_ALLREG_PIO0 | RESETS_ALLREG_PIO1);
 
+    chVTObjectInit(&_dshot_rate_timer);
     memset(_pending,   0, sizeof(_pending));
     memset(_last_sent, 0, sizeof(_last_sent));
     _pio_offset[0] = INVALID_PIO_OFFSET;
     _pio_offset[1] = INVALID_PIO_OFFSET;
     _pio_program_type[0] = PIOProgramType::None;
     _pio_program_type[1] = PIOProgramType::None;
+    _dshot_rate = 0;
+    _dshot_cycle = 0;
+    _dshot_period_us = 1000U;
+    _rcout_thread_ctx = nullptr;
     _telem_request_mask = 0;
     _dshot_esc_type = DSHOT_ESC_NONE;
     for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
@@ -332,9 +338,11 @@ void RCOutput::write(uint8_t chan, uint16_t period_us) {
     }
     _pending[chan] = period_us;
     if (!_corked) {
-        if (_uses_pio(chan)) {
+        if (_uses_pio(chan) && !_is_dshot_mode(_chan_mode[chan])) {
             _send_pio_outputs(1U << chan);
-        } else {
+        } else if (_is_dshot_mode(_chan_mode[chan])) {
+            _signal_dshot_event(EVT_PWM_SEND);
+        } else if (!_uses_pio(chan)) {
             _write_to_hw(chan, period_us);
         }
     }
@@ -348,26 +356,25 @@ void RCOutput::push() {
     if (!_corked) {
         return;
     }
-    bool pio_update = false;
+    uint32_t oneshot_pio_mask = 0;
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
         if (_uses_pio(chan)) {
-            pio_update = true;
+            if (!_is_dshot_mode(_chan_mode[chan])) {
+                oneshot_pio_mask |= (1U << chan);
+            }
             continue;
         }
         if (_pending[chan] != _last_sent[chan]) {
             _write_to_hw(chan, _pending[chan]);
         }
     }
-    if (pio_update) {
-        uint32_t pio_mask = 0;
-        for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
-            if (_uses_pio(chan)) {
-                pio_mask |= (1U << chan);
-            }
-        }
-        _send_pio_outputs(pio_mask);
+    if (oneshot_pio_mask != 0) {
+        _send_pio_outputs(oneshot_pio_mask);
     }
     _corked = false;
+    if (_dshot_channel_mask() != 0U) {
+        _signal_dshot_event(EVT_PWM_SEND);
+    }
 }
 
 void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
@@ -417,6 +424,8 @@ void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
             pwmChangePeriod(pwm_drivers[di], desired);
         }
     }
+    _dshot_cycle = 0;
+    chVTReset(&_dshot_rate_timer);
 }
 
 enum AP_HAL::RCOutput::output_mode RCOutput::get_output_mode(uint32_t& mask) {
@@ -443,6 +452,43 @@ void RCOutput::set_default_rate(uint16_t rate_hz) {
     // Apply to all channels
     const uint32_t all_mask = (1U << NUM_CHANNELS) - 1;
     set_freq(all_mask, rate_hz);
+}
+
+void RCOutput::timer_tick()
+{
+    if (!_corked && _dshot_channel_mask() != 0U) {
+        _signal_dshot_event(EVT_PWM_SEND);
+    }
+}
+
+void RCOutput::set_dshot_rate(uint8_t dshot_rate, uint16_t loop_rate_hz)
+{
+    if (loop_rate_hz <= 100U || dshot_rate == 0U) {
+        _dshot_rate = 0;
+        _dshot_period_us = 1000U;
+        _dshot_cycle = 0;
+        chVTReset(&_dshot_rate_timer);
+        return;
+    }
+
+    uint8_t rate_multiplier = dshot_rate;
+    uint32_t output_rate_hz = rate_multiplier * loop_rate_hz;
+    while (output_rate_hz < 800U) {
+        rate_multiplier++;
+        output_rate_hz = rate_multiplier * loop_rate_hz;
+    }
+    if (output_rate_hz > 4000U) {
+        rate_multiplier = 4000U / loop_rate_hz;
+        if (rate_multiplier == 0U) {
+            rate_multiplier = 1U;
+        }
+        output_rate_hz = rate_multiplier * loop_rate_hz;
+    }
+
+    _dshot_rate = rate_multiplier;
+    _dshot_period_us = 1000000UL / output_rate_hz;
+    _dshot_cycle = 0;
+    chVTReset(&_dshot_rate_timer);
 }
 
 void RCOutput::set_telem_request_mask(uint32_t mask)
@@ -491,6 +537,79 @@ uint32_t RCOutput::_dshot_bitrate(output_mode mode)
     default:
         return 0;
     }
+}
+
+uint32_t RCOutput::_dshot_channel_mask() const
+{
+    uint32_t mask = 0;
+    for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
+        if (_is_dshot_mode(_chan_mode[chan])) {
+            mask |= (1U << chan);
+        }
+    }
+    return mask;
+}
+
+void RCOutput::_signal_dshot_event(eventmask_t mask)
+{
+    if (_rcout_thread_ctx != nullptr) {
+        chEvtSignal(_rcout_thread_ctx, mask);
+    }
+}
+
+void RCOutput::rcout_thread()
+{
+    _rcout_thread_ctx = chThdGetSelfX();
+
+    while (!hal.scheduler->is_system_initialized()) {
+        hal.scheduler->delay_microseconds(1000);
+    }
+
+    while (true) {
+        const eventmask_t mask = chEvtWaitOne(EVT_PWM_SEND | EVT_PWM_SYNTHETIC_SEND);
+        if ((mask & (EVT_PWM_SEND | EVT_PWM_SYNTHETIC_SEND)) == 0U) {
+            continue;
+        }
+
+        const uint32_t dshot_mask = _dshot_channel_mask();
+        if (dshot_mask == 0U) {
+            _dshot_cycle = 0;
+            chVTReset(&_dshot_rate_timer);
+            continue;
+        }
+
+        if (_dshot_cycle == 0U) {
+            chVTReset(&_dshot_rate_timer);
+            if (_dshot_rate != 1U) {
+                chVTSet(&_dshot_rate_timer, chTimeUS2I(_dshot_period_us), dshot_update_tick, this);
+            }
+        }
+
+        _send_pio_outputs(dshot_mask);
+
+        if (_dshot_rate > 0U) {
+            _dshot_cycle = (_dshot_cycle + 1U) % _dshot_rate;
+        } else {
+            _dshot_cycle = 0U;
+        }
+    }
+}
+
+void RCOutput::dshot_update_tick(virtual_timer_t *vt, void *ctx)
+{
+    (void)vt;
+    chSysLockFromISR();
+    RCOutput *rcout = static_cast<RCOutput *>(ctx);
+    if (rcout->_dshot_cycle + 1U < rcout->_dshot_rate) {
+        chVTSetI(&rcout->_dshot_rate_timer,
+                 chTimeUS2I(rcout->_dshot_period_us),
+                 dshot_update_tick,
+                 ctx);
+    }
+    if (rcout->_rcout_thread_ctx != nullptr) {
+        chEvtSignalI(rcout->_rcout_thread_ctx, EVT_PWM_SYNTHETIC_SEND);
+    }
+    chSysUnlockFromISR();
 }
 
 bool RCOutput::_uses_pio(uint8_t chan) const

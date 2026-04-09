@@ -51,6 +51,10 @@
 #define RCIN_THD_WA_SIZE    1024
 #endif
 
+#ifndef RCOUT_THD_WA_SIZE
+#define RCOUT_THD_WA_SIZE   1024
+#endif
+
 class Rp2xxxChibiOS::Scheduler : public AP_HAL::Scheduler {
 public:
     Scheduler();
@@ -122,6 +126,7 @@ private:
     thread_t* _io_thread_ctx;
     thread_t* _monitor_thread_ctx;
     thread_t* _rcin_thread_ctx;
+    thread_t* _rcout_thread_ctx;
 
 #if CH_CFG_USE_SEMAPHORES == TRUE
     binary_semaphore_t _timer_semaphore;
@@ -132,6 +137,7 @@ private:
     static void _io_thread(void *arg);
     static void _monitor_thread(void *arg);
     static void _rcin_thread(void *arg);
+    static void _rcout_thread(void *arg);
 
     void _run_timers();
     void _run_io(void);

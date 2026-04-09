@@ -19,6 +19,7 @@
 #include <AP_Math/AP_Math.h>
 #include <AP_HAL_rp2xxxChibiOS/RCInput.h>
 #include <AP_HAL_rp2xxxChibiOS/AnalogIn.h>
+#include <AP_HAL_rp2xxxChibiOS/RCOutput.h>
 #include <AP_InternalError/AP_InternalError.h>
 
 #include <hal.h>
@@ -84,6 +85,13 @@ void Scheduler::init()
                                             this,
                                             &ch1);
 #endif
+
+    _rcout_thread_ctx = thread_create_alloc(THD_WORKING_AREA_SIZE(RCOUT_THD_WA_SIZE),
+                                            "RCOUT_THREAD",
+                                            APM_RCOUT_PRIORITY,
+                                            _rcout_thread,
+                                            this,
+                                            &ch1);
 }
 
 
@@ -472,6 +480,16 @@ void Scheduler::_rcin_thread(void *arg)
         sched->delay_microseconds(300);
         ((RCInput *)hal.rcin)->_timer_tick();
     }
+}
+
+void Scheduler::_rcout_thread(void *arg)
+{
+    Scheduler *sched = (Scheduler *)arg;
+    chRegSetThreadName("rcout");
+    while (!sched->_hal_initialized) {
+        sched->delay_microseconds(1000);
+    }
+    ((RCOutput *)hal.rcout)->rcout_thread();
 }
 
 void Scheduler::_run_io(void)
