@@ -20,6 +20,9 @@ public:
     void     set_output_mode(uint32_t mask, enum output_mode mode) override;
     enum output_mode get_output_mode(uint32_t& mask) override;
     void     set_default_rate(uint16_t rate_hz) override;
+    void     set_telem_request_mask(uint32_t mask) override;
+    void     set_dshot_esc_type(DshotEscType esc_type) override;
+    DshotEscType get_dshot_esc_type() const override { return _dshot_esc_type; }
 private:
     // Maximum logical RC outputs exposed by the board configuration.
     static constexpr uint8_t NUM_CHANNELS = RP2xxx_MAX_RC_OUTPUTS;
@@ -34,6 +37,11 @@ private:
         PIO pio;
         uint8_t sm;
     };
+    enum class PIOProgramType : uint8_t {
+        None,
+        OneShot,
+        DShot,
+    };
     ChanMap chan_map[NUM_CHANNELS] = {};
     PIOChanMap pio_chan_map[NUM_CHANNELS] = {};
 
@@ -46,7 +54,10 @@ private:
     uint8_t     _num_drivers = 0;
     uint32_t    _pio_mode_mask = 0;
     uint8_t     _pio_offset[2] = {INVALID_PIO_OFFSET, INVALID_PIO_OFFSET};
+    PIOProgramType _pio_program_type[2] = {PIOProgramType::None, PIOProgramType::None};
     bool        _pio_ready[NUM_CHANNELS] = {};
+    uint32_t    _telem_request_mask = 0;
+    DshotEscType _dshot_esc_type = DSHOT_ESC_NONE;
 
     PWMConfig pwm_cfg[NUM_CHANNELS];
     PWMDriver *pwm_drivers[NUM_CHANNELS] = {};
@@ -54,10 +65,13 @@ private:
     static PWMDriver *_slice_to_pwm_driver(uint8_t slice);
     pwmcnt_t _scale_pulse(uint8_t chan, uint16_t period_us) const;
     uint32_t _scale_oneshot_pio_ticks(uint8_t chan, uint16_t period_us) const;
+    uint32_t _create_dshot_packet(uint8_t chan, uint16_t period_us) const;
     void     _write_to_hw(uint8_t chan, uint16_t period_us);
     void     _send_pio_outputs(uint32_t chmask);
     uint32_t _min_period_us(uint8_t driver_idx) const;
     static bool _uses_pio_mode(output_mode mode);
+    static bool _is_dshot_mode(output_mode mode);
+    static uint32_t _dshot_bitrate(output_mode mode);
     bool _uses_pio(uint8_t chan) const;
     bool _init_pio_channel(uint8_t chan);
     void _set_pin_mode(uint8_t chan);

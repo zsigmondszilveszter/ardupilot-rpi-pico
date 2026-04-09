@@ -200,6 +200,17 @@ static inline void sm_config_set_out_shift(pio_sm_config *c, bool shift_right, b
                    ((pull_threshold & 0x1fu) << PIO_SM0_SHIFTCTRL_PULL_THRESH_LSB);
 }
 
+static inline void sm_config_set_sideset(pio_sm_config *c, uint bit_count, bool optional, bool pindirs) {
+    valid_params_if(PIO, bit_count <= 5);
+    valid_params_if(PIO, !optional || (bit_count >= 1 && bit_count <= 4));
+    c->pinctrl = (c->pinctrl & ~PIO_SM0_PINCTRL_SIDESET_COUNT_BITS) |
+                 (bit_count << PIO_SM0_PINCTRL_SIDESET_COUNT_LSB);
+    c->execctrl = (c->execctrl &
+                   ~(PIO_SM0_EXECCTRL_SIDE_EN_BITS | PIO_SM0_EXECCTRL_SIDE_PINDIR_BITS)) |
+                  (bool_to_bit(optional) << PIO_SM0_EXECCTRL_SIDE_EN_LSB) |
+                  (bool_to_bit(pindirs) << PIO_SM0_EXECCTRL_SIDE_PINDIR_LSB);
+}
+
 /*! \brief  Get the default state machine configuration
  *  \ingroup sm_config
  *
@@ -379,6 +390,12 @@ static inline void sm_config_set_in_pins(pio_sm_config *c, uint in_base) {
     valid_params_if(PIO, in_base < 32);
     c->pinctrl = (c->pinctrl & ~PIO_SM0_PINCTRL_IN_BASE_BITS) |
                  (in_base << PIO_SM0_PINCTRL_IN_BASE_LSB);
+}
+
+static inline void sm_config_set_sideset_pins(pio_sm_config *c, uint sideset_base) {
+    valid_params_if(PIO, sideset_base < 32);
+    c->pinctrl = (c->pinctrl & ~PIO_SM0_PINCTRL_SIDESET_BASE_BITS) |
+                 (sideset_base << PIO_SM0_PINCTRL_SIDESET_BASE_LSB);
 }
 
 /*! \brief Set the 'jmp' pin in a state machine configuration

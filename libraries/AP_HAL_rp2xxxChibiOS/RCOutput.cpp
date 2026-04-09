@@ -1,6 +1,7 @@
 
 #include "RCOutput.h"
 #include <AP_Math/AP_Math.h>
+#include "hwdef/common/dshot_output.pio.h"
 #include "hwdef/common/oneshot_output.pio.h"
 
 using namespace Rp2xxxChibiOS;
@@ -16,6 +17,7 @@ constexpr uint8_t RCOutput::NUM_CHANNELS;
 #define PWM_TIMER_FREQ   2000000UL
 // 400 Hz standard fast PWM: 2.5 ms period
 #define PWM_PERIOD_TICKS 5000
+#define DSHOT_PIO_BIT_WIDTH_TICKS 8U
 
 #if RP2xxx_MAX_RC_OUTPUTS > 6
 #error "RP2xxx_MAX_RC_OUTPUTS > 6 is not supported"
@@ -108,6 +110,12 @@ void RCOutput::init() {
 
     memset(_pending,   0, sizeof(_pending));
     memset(_last_sent, 0, sizeof(_last_sent));
+    _pio_offset[0] = INVALID_PIO_OFFSET;
+    _pio_offset[1] = INVALID_PIO_OFFSET;
+    _pio_program_type[0] = PIOProgramType::None;
+    _pio_program_type[1] = PIOProgramType::None;
+    _telem_request_mask = 0;
+    _dshot_esc_type = DSHOT_ESC_NONE;
     for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
         _chan_mode[i] = MODE_PWM_NORMAL;
         _chan_freq_hz[i] = _default_rate_hz;
@@ -207,14 +215,46 @@ uint32_t RCOutput::_scale_oneshot_pio_ticks(uint8_t chan, uint16_t period_us) co
     return ticks > 2 ? (uint32_t)(ticks - 2ULL) : 0U;
 }
 
+uint32_t RCOutput::_create_dshot_packet(uint8_t chan, uint16_t period_us) const
+{
+    const uint16_t pwm = constrain_int16(period_us, 0, 2000);
+    uint16_t value = 0;
+    if (pwm >= 1000U) {
+        value = MIN((uint16_t)(2U * (pwm - 1000U)), (uint16_t)1999U);
+    }
+    if (value != 0) {
+        value += DSHOT_ZERO_THROTTLE;
+    }
+
+    const bool telem_request = (_telem_request_mask & (1U << chan)) != 0;
+    uint16_t packet = (value << 1);
+    if (telem_request) {
+        packet |= 1U;
+    }
+
+    uint16_t csum = 0;
+    uint16_t csum_data = packet;
+    for (uint8_t i = 0; i < 3; i++) {
+        csum ^= csum_data;
+        csum_data >>= 4;
+    }
+    csum &= 0x0FU;
+    packet = (packet << 4) | csum;
+
+    return uint32_t(packet) << 16;
+}
+
 void RCOutput::_write_to_hw(uint8_t chan, uint16_t period_us) {
     if (_uses_pio(chan)) {
         if (!_pio_ready[chan] && !_init_pio_channel(chan)) {
             return;
         }
+        const uint32_t pio_word = _is_dshot_mode(_chan_mode[chan]) ?
+            _create_dshot_packet(chan, period_us) :
+            _scale_oneshot_pio_ticks(chan, period_us);
         pio_sm_put_blocking(pio_chan_map[chan].pio,
                             pio_chan_map[chan].sm,
-                            _scale_oneshot_pio_ticks(chan, period_us));
+                            pio_word);
         _last_sent[chan] = period_us;
         return;
     }
@@ -336,6 +376,14 @@ void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
         if (!(mask & (1U << chan))) {
             continue;
         }
+        if (_pio_ready[chan] && _uses_pio_mode(_chan_mode[chan]) && _uses_pio_mode(mode) &&
+            ((_is_dshot_mode(_chan_mode[chan]) != _is_dshot_mode(mode)) ||
+             (_is_dshot_mode(mode) && _chan_mode[chan] != mode))) {
+            pio_sm_exec(pio_chan_map[chan].pio, pio_chan_map[chan].sm, pio_encode_set(pio_pins, 0));
+            pio_sm_clear_fifos(pio_chan_map[chan].pio, pio_chan_map[chan].sm);
+            pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, false);
+            _pio_ready[chan] = false;
+        }
         _chan_mode[chan] = mode;
         if (_uses_pio_mode(mode)) {
             _pio_mode_mask |= (1U << chan);
@@ -355,6 +403,7 @@ void RCOutput::set_output_mode(uint32_t mask, enum output_mode mode) {
                 pio_sm_exec(pio_chan_map[chan].pio, pio_chan_map[chan].sm, pio_encode_set(pio_pins, 0));
                 pio_sm_clear_fifos(pio_chan_map[chan].pio, pio_chan_map[chan].sm);
                 pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, false);
+                _pio_ready[chan] = false;
             }
         }
     }
@@ -396,6 +445,16 @@ void RCOutput::set_default_rate(uint16_t rate_hz) {
     set_freq(all_mask, rate_hz);
 }
 
+void RCOutput::set_telem_request_mask(uint32_t mask)
+{
+    _telem_request_mask = mask & ((1U << NUM_CHANNELS) - 1U);
+}
+
+void RCOutput::set_dshot_esc_type(DshotEscType esc_type)
+{
+    _dshot_esc_type = esc_type;
+}
+
 uint16_t RCOutput::read(uint8_t chan) {
     if (chan < NUM_CHANNELS) {
         return _pending[chan];
@@ -410,7 +469,28 @@ void RCOutput::read(uint16_t* period_us, uint8_t len) {
 
 bool RCOutput::_uses_pio_mode(output_mode mode)
 {
-    return mode == MODE_PWM_ONESHOT || mode == MODE_PWM_ONESHOT125;
+    return mode == MODE_PWM_ONESHOT || mode == MODE_PWM_ONESHOT125 || _is_dshot_mode(mode);
+}
+
+bool RCOutput::_is_dshot_mode(output_mode mode)
+{
+    return AP_HAL::RCOutput::is_dshot_protocol(mode);
+}
+
+uint32_t RCOutput::_dshot_bitrate(output_mode mode)
+{
+    switch (mode) {
+    case MODE_PWM_DSHOT150:
+        return 150000UL;
+    case MODE_PWM_DSHOT300:
+        return 300000UL;
+    case MODE_PWM_DSHOT600:
+        return 600000UL;
+    case MODE_PWM_DSHOT1200:
+        return 1200000UL;
+    default:
+        return 0;
+    }
 }
 
 bool RCOutput::_uses_pio(uint8_t chan) const
@@ -436,12 +516,20 @@ bool RCOutput::_init_pio_channel(uint8_t chan)
 
     const PIO pio = pio_chan_map[chan].pio;
     const uint8_t pio_idx = pio_get_index(pio);
+    const bool dshot = _is_dshot_mode(_chan_mode[chan]);
+    const pio_program_t *program = dshot ? &dshot_output_pio_program : &oneshot_output_pio_program;
+    const uint8_t wrap_target = dshot ? dshot_output_wrap_target : oneshot_output_wrap_target;
+    const uint8_t wrap = dshot ? dshot_output_wrap : oneshot_output_wrap;
+    const PIOProgramType program_type = dshot ? PIOProgramType::DShot : PIOProgramType::OneShot;
     if (_pio_offset[pio_idx] == INVALID_PIO_OFFSET) {
-        const uint offset = pio_add_program(pio, &oneshot_output_pio_program);
+        const uint offset = pio_add_program(pio, program);
         if (offset >= PIO_INSTRUCTION_COUNT) {
             return false;
         }
         _pio_offset[pio_idx] = offset;
+        _pio_program_type[pio_idx] = program_type;
+    } else if (_pio_program_type[pio_idx] != program_type) {
+        return false;
     }
 
     const uint8_t sm = pio_chan_map[chan].sm;
@@ -451,10 +539,17 @@ bool RCOutput::_init_pio_channel(uint8_t chan)
 
     pio_sm_config c = pio_get_default_sm_config();
     sm_config_set_wrap(&c,
-                       _pio_offset[pio_idx] + oneshot_output_wrap_target,
-                       _pio_offset[pio_idx] + oneshot_output_wrap);
+                       _pio_offset[pio_idx] + wrap_target,
+                       _pio_offset[pio_idx] + wrap);
     sm_config_set_set_pins(&c, pin, 1);
-    sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / ONESHOT_PIO_FREQ);
+    if (dshot) {
+        sm_config_set_sideset(&c, 1, false, false);
+        sm_config_set_sideset_pins(&c, pin);
+        sm_config_set_out_shift(&c, false, false, 32);
+        sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / (_dshot_bitrate(_chan_mode[chan]) * DSHOT_PIO_BIT_WIDTH_TICKS));
+    } else {
+        sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / ONESHOT_PIO_FREQ);
+    }
     pio_sm_init(pio, sm, _pio_offset[pio_idx], &c);
     palSetLineMode(pin, pio_pin_mode(pio));
     pio_sm_set_enabled(pio, sm, true);
