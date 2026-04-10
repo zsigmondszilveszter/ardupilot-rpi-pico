@@ -378,6 +378,23 @@ static inline void sm_config_set_set_pins(pio_sm_config *c, uint set_base, uint 
                  (set_count << PIO_SM0_PINCTRL_SET_COUNT_LSB);
 }
 
+/*! \brief Set the 'out' pins in a state machine configuration
+ *  \ingroup sm_config
+ *
+ * Can overlap with the 'in', 'set' and 'sideset' pins
+ *
+ * \param c Pointer to the configuration structure to modify
+ * \param out_base 0-31 First pin to drive via OUT/MOV PINS
+ * \param out_count 0-32 Number of pins to drive.
+ */
+static inline void sm_config_set_out_pins(pio_sm_config *c, uint out_base, uint out_count) {
+    valid_params_if(PIO, out_base < 32);
+    valid_params_if(PIO, out_count <= 32);
+    c->pinctrl = (c->pinctrl & ~(PIO_SM0_PINCTRL_OUT_BASE_BITS | PIO_SM0_PINCTRL_OUT_COUNT_BITS)) |
+                 (out_base << PIO_SM0_PINCTRL_OUT_BASE_LSB) |
+                 (out_count << PIO_SM0_PINCTRL_OUT_COUNT_LSB);
+}
+
 /*! \brief Set the 'in' pins in a state machine configuration
  *  \ingroup sm_config
  *
@@ -459,6 +476,19 @@ static inline bool pio_sm_is_tx_fifo_full(PIO pio, uint sm) {
     check_pio_param(pio);
     check_sm_param(sm);
     return (pio->fstat & (1u << (PIO_FSTAT_TXFULL_LSB + sm))) != 0;
+}
+
+/*! \brief Determine if a state machine's TX FIFO is empty
+ *  \ingroup hardware_pio
+ *
+ * \param pio The PIO instance; either \ref pio0 or \ref pio1
+ * \param sm State machine index (0..3)
+ * \return true if the TX FIFO is empty
+ */
+static inline bool pio_sm_is_tx_fifo_empty(PIO pio, uint sm) {
+    check_pio_param(pio);
+    check_sm_param(sm);
+    return (pio->fstat & (1u << (PIO_FSTAT_TXEMPTY_LSB + sm))) != 0;
 }
 
 /*! \brief Return the number of elements currently in a state machine's RX FIFO

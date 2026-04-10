@@ -209,6 +209,15 @@
 #define HAVE_FILESYSTEM_SUPPORT     1
 #endif
 
+#ifndef HAL_SUPPORT_RCOUT_SERIAL
+#define HAL_SUPPORT_RCOUT_SERIAL    1
+#endif
+
+#ifndef UDID_START
+extern const uint8_t rp2xxx_udid[12];
+#define UDID_START rp2xxx_udid
+#endif
+
 // I2C configuration
 // Bus base is 1 because the only I2C peripheral is hardware I2C1
 #define HAL_I2C_BUS_BASE 1

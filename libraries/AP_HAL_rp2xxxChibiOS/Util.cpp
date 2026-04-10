@@ -28,6 +28,8 @@
 
 using namespace Rp2xxxChibiOS;
 
+const uint8_t rp2xxx_udid[12] = {};
+
 extern "C" {
     uint32_t __main_stack_base__;
     uint32_t __main_stack_end__;

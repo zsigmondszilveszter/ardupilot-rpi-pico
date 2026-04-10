@@ -275,7 +275,7 @@ void Rp2xxxChibiOS::UARTDriver::_uart_write_thread(void *arg)
             uart->_restart_pending = false;
         }
         uart->_txWakeSem.wait(5000);
-        uart->flush();
+        uart->_flush();
     }
 }
 

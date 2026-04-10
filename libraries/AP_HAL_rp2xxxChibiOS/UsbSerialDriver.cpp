@@ -276,7 +276,7 @@ void Rp2xxxChibiOS::UsbSerialDriver::_usb_cdc_write_thread(void *arg)
 
     while (true) {
         driver->_txWakeSem.wait(5000);
-        driver->flush();
+        driver->_flush();
     }
 }
 

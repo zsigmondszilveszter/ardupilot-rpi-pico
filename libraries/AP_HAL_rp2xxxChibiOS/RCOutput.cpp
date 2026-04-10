@@ -1,6 +1,7 @@
 #include <AP_HAL/AP_HAL.h>
 #include "RCOutput.h"
 #include <AP_Math/AP_Math.h>
+#include "hwdef/common/esc_serial_io.pio.h"
 #include "hwdef/common/dshot_output.pio.h"
 #include "hwdef/common/oneshot_output.pio.h"
 
@@ -19,6 +20,22 @@ extern const AP_HAL::HAL &hal;
 // 400 Hz standard fast PWM: 2.5 ms period
 #define PWM_PERIOD_TICKS 5000
 #define DSHOT_PIO_BIT_WIDTH_TICKS 8U
+#define ESC_SERIAL_PIO_BIT_WIDTH_TICKS 8U
+#define ESC_SERIAL_BYTE_BITS 10U
+
+#ifndef RP2XXX_ESC_SERIAL_DEBUG
+#define RP2XXX_ESC_SERIAL_DEBUG 0
+#endif
+
+#if RP2XXX_ESC_SERIAL_DEBUG
+#define ESCDBG(fmt, args ...) do { hal.console->printf("ESC-PT: " fmt "\n", ##args); } while (0)
+static inline uint32_t escdbg_now_us()
+{
+    return AP_HAL::micros();
+}
+#else
+#define ESCDBG(fmt, args ...) do {} while (0)
+#endif
 
 #if RP2xxx_MAX_RC_OUTPUTS > 6
 #error "RP2xxx_MAX_RC_OUTPUTS > 6 is not supported"
@@ -55,6 +72,18 @@ static inline uint32_t pio_pin_mode(PIO pio)
 {
     return (pio == pio0 ? PAL_RP_IOCTRL_FUNCSEL_PIO0 : PAL_RP_IOCTRL_FUNCSEL_PIO1) |
            PAL_RP_PAD_DRIVE8 | PAL_RP_PAD_SLEWFAST;
+}
+
+static inline uint32_t pio_input_pin_mode(PIO pio)
+{
+    return (pio == pio0 ? PAL_RP_IOCTRL_FUNCSEL_PIO0 : PAL_RP_IOCTRL_FUNCSEL_PIO1) |
+           PAL_RP_PAD_IE | PAL_RP_PAD_PUE;
+}
+
+static inline uint32_t pio_serial_pin_mode(PIO pio)
+{
+    return (pio == pio0 ? PAL_RP_IOCTRL_FUNCSEL_PIO0 : PAL_RP_IOCTRL_FUNCSEL_PIO1) |
+           PAL_RP_PAD_IE | PAL_RP_PAD_PUE | PAL_RP_PAD_DRIVE8 | PAL_RP_PAD_SLEWFAST;
 }
 
 static inline uint32_t low_drive_pin_mode()
@@ -112,8 +141,11 @@ void RCOutput::init() {
     chVTObjectInit(&_dshot_rate_timer);
     memset(_pending,   0, sizeof(_pending));
     memset(_last_sent, 0, sizeof(_last_sent));
+    memset(_last_dshot_send_us, 0, sizeof(_last_dshot_send_us));
     _pio_offset[0] = INVALID_PIO_OFFSET;
     _pio_offset[1] = INVALID_PIO_OFFSET;
+    _serial_io_offset[0] = INVALID_PIO_OFFSET;
+    _serial_io_offset[1] = INVALID_PIO_OFFSET;
     _pio_program_type[0] = PIOProgramType::None;
     _pio_program_type[1] = PIOProgramType::None;
     _dshot_rate = 0;
@@ -122,6 +154,10 @@ void RCOutput::init() {
     _rcout_thread_ctx = nullptr;
     _telem_request_mask = 0;
     _dshot_esc_type = DSHOT_ESC_NONE;
+    _serial_active = false;
+    _serial_chan = INVALID_CHANNEL;
+    _serial_chanmask = 0;
+    _serial_baudrate = 0;
     for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
         _chan_mode[i] = MODE_PWM_NORMAL;
         _chan_freq_hz[i] = _default_rate_hz;
@@ -251,16 +287,28 @@ uint32_t RCOutput::_create_dshot_packet(uint8_t chan, uint16_t period_us) const
 }
 
 void RCOutput::_write_to_hw(uint8_t chan, uint16_t period_us) {
+    if (_serial_suspended(chan)) {
+        return;
+    }
     if (_uses_pio(chan)) {
         if (!_pio_ready[chan] && !_init_pio_channel(chan)) {
             return;
         }
+        const PIO pio = pio_chan_map[chan].pio;
+        const uint8_t sm = pio_chan_map[chan].sm;
+        if (_is_dshot_mode(_chan_mode[chan])) {
+            if (!_can_send_dshot_pulse(chan)) {
+                return;
+            }
+            if (!pio_sm_is_tx_fifo_empty(pio, sm)) {
+                return;
+            }
+            _last_dshot_send_us[chan] = AP_HAL::micros64();
+        }
         const uint32_t pio_word = _is_dshot_mode(_chan_mode[chan]) ?
             _create_dshot_packet(chan, period_us) :
             _scale_oneshot_pio_ticks(chan, period_us);
-        pio_sm_put_blocking(pio_chan_map[chan].pio,
-                            pio_chan_map[chan].sm,
-                            pio_word);
+        pio_sm_put_blocking(pio, sm, pio_word);
         _last_sent[chan] = period_us;
         return;
     }
@@ -306,6 +354,9 @@ void RCOutput::enable_ch(uint8_t chan) {
     if (chan >= NUM_CHANNELS) {
         return;
     }
+    if (_serial_suspended(chan)) {
+        return;
+    }
     if (_uses_pio(chan)) {
         if (_pio_ready[chan] || _init_pio_channel(chan)) {
             pio_sm_set_enabled(pio_chan_map[chan].pio, pio_chan_map[chan].sm, true);
@@ -319,6 +370,9 @@ void RCOutput::enable_ch(uint8_t chan) {
 
 void RCOutput::disable_ch(uint8_t chan) {
     if (chan >= NUM_CHANNELS) {
+        return;
+    }
+    if (_serial_suspended(chan)) {
         return;
     }
     if (_uses_pio(chan)) {
@@ -539,15 +593,36 @@ uint32_t RCOutput::_dshot_bitrate(output_mode mode)
     }
 }
 
+uint32_t RCOutput::_dshot_pulse_time_us(uint8_t chan) const
+{
+    const uint32_t bitrate = _dshot_bitrate(_chan_mode[chan]);
+    if (bitrate == 0U) {
+        return 0U;
+    }
+
+    return (19U * 1000000UL + bitrate - 1U) / bitrate;
+}
+
+bool RCOutput::_can_send_dshot_pulse(uint8_t chan) const
+{
+    return _is_dshot_mode(_chan_mode[chan]) &&
+           AP_HAL::micros64() - _last_dshot_send_us[chan] > (_dshot_pulse_time_us(chan) + 50U);
+}
+
 uint32_t RCOutput::_dshot_channel_mask() const
 {
     uint32_t mask = 0;
     for (uint8_t chan = 0; chan < NUM_CHANNELS; chan++) {
-        if (_is_dshot_mode(_chan_mode[chan])) {
+        if (_is_dshot_mode(_chan_mode[chan]) && !_serial_suspended(chan)) {
             mask |= (1U << chan);
         }
     }
     return mask;
+}
+
+bool RCOutput::_serial_suspended(uint8_t chan) const
+{
+    return _serial_active && (_serial_chanmask & (1U << chan)) != 0U;
 }
 
 void RCOutput::_signal_dshot_event(eventmask_t mask)
@@ -627,6 +702,88 @@ void RCOutput::_send_pio_outputs(uint32_t chmask)
     }
 }
 
+bool RCOutput::_load_serial_program(PIO pio, uint8_t &offset)
+{
+    uint8_t &stored_offset = _serial_io_offset[pio_get_index(pio)];
+    if (stored_offset != INVALID_PIO_OFFSET) {
+        offset = stored_offset;
+        return true;
+    }
+
+    const pio_program_t *program = &esc_serial_io_pio_program;
+    const uint loaded_offset = pio_add_program(pio, program);
+    if (loaded_offset >= PIO_INSTRUCTION_COUNT) {
+        ESCDBG("load io prog failed pio=%u len=%u off=%lu",
+               (unsigned)pio_get_index(pio),
+               (unsigned)program->length,
+               (unsigned long)loaded_offset);
+        return false;
+    }
+    stored_offset = loaded_offset;
+    offset = loaded_offset;
+    return true;
+}
+
+bool RCOutput::_init_serial_sm(void)
+{
+    if (!_serial_active || _serial_chan >= NUM_CHANNELS || _serial_baudrate == 0U) {
+        return false;
+    }
+
+    const uint8_t chan = _serial_chan;
+    const PIO pio = pio_chan_map[chan].pio;
+    const uint8_t sm = pio_chan_map[chan].sm;
+    const uint8_t pin = rc_out_pins[chan];
+    uint8_t offset = INVALID_PIO_OFFSET;
+    if (!_load_serial_program(pio, offset)) {
+        ESCDBG("init io sm failed chan=%u pin=%u pio=%u sm=%u",
+               (unsigned)chan,
+               (unsigned)pin,
+               (unsigned)pio_get_index(pio),
+               (unsigned)sm);
+        return false;
+    }
+
+    pio_sm_set_enabled(pio, sm, false);
+    pio_sm_clear_fifos(pio, sm);
+
+    pio_sm_config c = pio_get_default_sm_config();
+    sm_config_set_wrap(&c,
+                       offset + esc_serial_io_wrap_target,
+                       offset + esc_serial_io_wrap);
+    sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / (_serial_baudrate * ESC_SERIAL_PIO_BIT_WIDTH_TICKS));
+    sm_config_set_set_pins(&c, pin, 1);
+    sm_config_set_out_pins(&c, pin, 1);
+    sm_config_set_in_pins(&c, pin);
+    sm_config_set_jmp_pin(&c, pin);
+    sm_config_set_out_shift(&c, true, false, 32);
+    sm_config_set_in_shift(&c, true, false, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_NONE);
+    pio_sm_init(pio, sm, offset, &c);
+    palSetLineMode(pin, pio_serial_pin_mode(pio));
+
+    pio_sm_set_enabled(pio, sm, true);
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pins, 1));
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 1));
+    return true;
+}
+
+void RCOutput::_release_serial_channel(uint8_t chan)
+{
+    if (chan >= NUM_CHANNELS || !_uses_pio(chan)) {
+        return;
+    }
+
+    const PIO pio = pio_chan_map[chan].pio;
+    const uint8_t sm = pio_chan_map[chan].sm;
+    pio_sm_restart(pio, sm);
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 0));
+    pio_sm_set_enabled(pio, sm, false);
+    pio_sm_clear_fifos(pio, sm);
+    palSetLineMode(rc_out_pins[chan], pio_input_pin_mode(pio));
+    _pio_ready[chan] = false;
+}
+
 bool RCOutput::_init_pio_channel(uint8_t chan)
 {
     if (_pio_ready[chan]) {
@@ -670,10 +827,10 @@ bool RCOutput::_init_pio_channel(uint8_t chan)
         sm_config_set_clkdiv(&c, (float)RP_CORE_CLK / ONESHOT_PIO_FREQ);
     }
     pio_sm_init(pio, sm, _pio_offset[pio_idx], &c);
-    palSetLineMode(pin, pio_pin_mode(pio));
     pio_sm_set_enabled(pio, sm, true);
-    pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 1));
     pio_sm_exec(pio, sm, pio_encode_set(pio_pins, 0));
+    pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 1));
+    palSetLineMode(pin, pio_pin_mode(pio));
 
     _pio_ready[chan] = true;
     return true;
@@ -681,9 +838,216 @@ bool RCOutput::_init_pio_channel(uint8_t chan)
 
 void RCOutput::_set_pin_mode(uint8_t chan)
 {
+    if (_serial_active && chan == _serial_chan) {
+        return;
+    }
     if (_uses_pio(chan)) {
         (void)_init_pio_channel(chan);
     } else {
         palSetLineMode(rc_out_pins[chan], PAL_MODE_ALTERNATE_PWM);
     }
+}
+
+bool RCOutput::serial_setup_output(uint8_t chan, uint32_t baudrate, uint32_t chanmask)
+{
+    osalDbgAssert(hal.scheduler->in_main_thread(), "serial_setup_output(): not called from main thread");
+    if (chan >= NUM_CHANNELS || baudrate == 0U) {
+        ESCDBG("setup invalid chan=%u baud=%lu mask=0x%08lx",
+               (unsigned)chan,
+               (unsigned long)baudrate,
+               (unsigned long)chanmask);
+        serial_end(chanmask);
+        return false;
+    }
+
+    const uint32_t requested_mask = chanmask & ((1U << NUM_CHANNELS) - 1U);
+    if ((requested_mask & (1U << chan)) == 0U) {
+        ESCDBG("setup masked out chan=%u mask=0x%08lx",
+               (unsigned)chan,
+               (unsigned long)requested_mask);
+        serial_end(requested_mask);
+        return false;
+    }
+
+    if (_serial_active &&
+        _serial_chan == chan &&
+        _serial_chanmask == requested_mask &&
+        _serial_baudrate == baudrate) {
+        return true;
+    }
+
+    if (_serial_active &&
+        _serial_chanmask == requested_mask &&
+        _serial_baudrate == baudrate) {
+        _serial_chan = chan;
+        for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+            if ((_serial_chanmask & (1U << i)) == 0U) {
+                continue;
+            }
+            if (_uses_pio(i)) {
+                _release_serial_channel(i);
+            } else {
+                pwmDisableChannel(pwm_drivers[chan_map[i].driver_idx], chan_map[i].hw_channel);
+            }
+        }
+        if (!_init_serial_sm()) {
+            ESCDBG("setup reselect init failed chan=%u mask=0x%08lx",
+                   (unsigned)chan,
+                   (unsigned long)_serial_chanmask);
+            serial_end(_serial_chanmask);
+            return false;
+        }
+        return true;
+    }
+
+    if (_serial_active) {
+        serial_end(_serial_chanmask);
+    }
+
+    _serial_active = true;
+    _serial_chan = chan;
+    _serial_chanmask = requested_mask;
+    _serial_baudrate = baudrate;
+
+    for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+        if ((_serial_chanmask & (1U << i)) == 0U) {
+            continue;
+        }
+        if (_uses_pio(i)) {
+            _release_serial_channel(i);
+        } else if (!_uses_pio(i)) {
+            pwmDisableChannel(pwm_drivers[chan_map[i].driver_idx], chan_map[i].hw_channel);
+        }
+    }
+
+    if (!_init_serial_sm()) {
+        ESCDBG("setup init failed chan=%u mask=0x%08lx",
+               (unsigned)chan,
+               (unsigned long)_serial_chanmask);
+        serial_end(_serial_chanmask);
+        return false;
+    }
+    return true;
+}
+
+bool RCOutput::serial_write_bytes(const uint8_t *bytes, uint16_t len)
+{
+    if (!_serial_active || _serial_chan >= NUM_CHANNELS || bytes == nullptr) {
+        ESCDBG("write invalid active=%u chan=%u len=%u",
+               (unsigned)_serial_active,
+               (unsigned)_serial_chan,
+               (unsigned)len);
+        return false;
+    }
+    if (len == 0U) {
+        return true;
+    }
+    if (!_init_serial_sm()) {
+        ESCDBG("write init failed chan=%u len=%u",
+               (unsigned)_serial_chan,
+               (unsigned)len);
+        return false;
+    }
+
+    const PIO pio = pio_chan_map[_serial_chan].pio;
+    const uint8_t sm = pio_chan_map[_serial_chan].sm;
+    pio_sm_put_blocking(pio, sm, len - 1U);
+    for (uint16_t i = 0; i < len; i++) {
+        pio_sm_put_blocking(pio, sm, bytes[i]);
+    }
+
+    const uint32_t baudrate = _serial_baudrate != 0U ? _serial_baudrate : 19200U;
+    const uint16_t byte_time_us = uint16_t(((ESC_SERIAL_BYTE_BITS * 1000000U) + baudrate - 1U) / baudrate);
+    const uint32_t drain_timeout_us = byte_time_us * 8U;
+    const uint32_t drain_start_us = AP_HAL::micros();
+    while (!pio_sm_is_tx_fifo_empty(pio, sm) &&
+           (AP_HAL::micros() - drain_start_us) < drain_timeout_us) {
+        hal.scheduler->delay_microseconds(10);
+    }
+    // TX FIFO empty means the final byte has been pulled by the SM, not that
+    // its stop bit has reached the pin. Match STM32's blocking write contract.
+    hal.scheduler->delay_microseconds(byte_time_us + 25U);
+    return true;
+}
+
+uint16_t RCOutput::serial_read_bytes(uint8_t *buf, uint16_t len, uint32_t timeout_us)
+{
+    if (!_serial_active || _serial_chan >= NUM_CHANNELS || buf == nullptr) {
+        return 0;
+    }
+
+    const PIO pio = pio_chan_map[_serial_chan].pio;
+    const uint8_t sm = pio_chan_map[_serial_chan].sm;
+    io_rw_8 *rxfifo_shift = (io_rw_8 *)&pio->rxf[sm] + 3;
+    const uint32_t start_us = AP_HAL::micros();
+
+    uint16_t count = 0;
+    while (count < len) {
+        if (!pio_sm_is_rx_fifo_empty(pio, sm)) {
+            buf[count++] = *rxfifo_shift;
+            continue;
+        }
+        if ((AP_HAL::micros() - start_us) >= timeout_us) {
+            break;
+        }
+        hal.scheduler->delay_microseconds(10);
+    }
+
+#if RP2XXX_ESC_SERIAL_DEBUG
+    const uint32_t end_us = escdbg_now_us();
+    ESCDBG("read len=%u got=%u first=0x%02x last=0x%02x dur=%lu",
+           (unsigned)len,
+           (unsigned)count,
+           count > 0 ? (unsigned)buf[0] : 0U,
+           count > 0 ? (unsigned)buf[count - 1U] : 0U,
+           (unsigned long)(end_us - start_us));
+#endif
+    return count;
+}
+
+void RCOutput::serial_end(uint32_t chanmask)
+{
+    osalDbgAssert(hal.scheduler->in_main_thread(), "serial_end(): not called from main thread");
+    const uint32_t restore_mask = _serial_active ? _serial_chanmask :
+        (chanmask & ((1U << NUM_CHANNELS) - 1U));
+
+    if (_serial_active && _serial_chan < NUM_CHANNELS) {
+        const PIO pio = pio_chan_map[_serial_chan].pio;
+        const uint8_t sm = pio_chan_map[_serial_chan].sm;
+        pio_sm_restart(pio, sm);
+        pio_sm_exec(pio, sm, pio_encode_set(pio_pindirs, 0));
+        pio_sm_set_enabled(pio, sm, false);
+        pio_sm_clear_fifos(pio, sm);
+    }
+
+    _serial_active = false;
+    _serial_chan = INVALID_CHANNEL;
+    _serial_chanmask = 0;
+    _serial_baudrate = 0;
+
+    for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+        if ((restore_mask & (1U << i)) == 0U) {
+            continue;
+        }
+        if (_uses_pio(i)) {
+            _pio_ready[i] = false;
+            _set_pin_mode(i);
+        } else {
+            palSetLineMode(rc_out_pins[i], PAL_MODE_ALTERNATE_PWM);
+            _write_to_hw(i, _pending[i]);
+        }
+    }
+}
+
+void RCOutput::serial_reset(uint32_t chanmask)
+{
+    osalDbgAssert(hal.scheduler->in_main_thread(), "serial_reset(): not called from main thread");
+    if (!_serial_active) {
+        return;
+    }
+    const uint32_t requested_mask = chanmask & ((1U << NUM_CHANNELS) - 1U);
+    if (requested_mask != 0U && requested_mask != _serial_chanmask) {
+        _serial_chanmask = requested_mask;
+    }
+    (void)_init_serial_sm();
 }

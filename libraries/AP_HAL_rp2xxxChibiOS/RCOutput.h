@@ -26,6 +26,11 @@ public:
     void     set_telem_request_mask(uint32_t mask) override;
     void     set_dshot_esc_type(DshotEscType esc_type) override;
     DshotEscType get_dshot_esc_type() const override { return _dshot_esc_type; }
+    bool     serial_setup_output(uint8_t chan, uint32_t baudrate, uint32_t chanmask) override;
+    bool     serial_write_bytes(const uint8_t *bytes, uint16_t len) override;
+    uint16_t serial_read_bytes(uint8_t *buf, uint16_t len, uint32_t timeout_us) override;
+    void     serial_end(uint32_t chanmask) override;
+    void     serial_reset(uint32_t chanmask) override;
     void     rcout_thread();
 private:
     static const eventmask_t EVT_PWM_SEND = EVENT_MASK(11);
@@ -34,6 +39,7 @@ private:
     // Maximum logical RC outputs exposed by the board configuration.
     static constexpr uint8_t NUM_CHANNELS = RP2xxx_MAX_RC_OUTPUTS;
     static constexpr uint8_t INVALID_PIO_OFFSET = 0xFF;
+    static constexpr uint8_t INVALID_CHANNEL = 0xFF;
 
     // Mapping from logical channel index to (driver_index, hw_channel).
     struct ChanMap {
@@ -61,15 +67,21 @@ private:
     uint8_t     _num_drivers = 0;
     uint32_t    _pio_mode_mask = 0;
     uint8_t     _pio_offset[2] = {INVALID_PIO_OFFSET, INVALID_PIO_OFFSET};
+    uint8_t     _serial_io_offset[2] = {INVALID_PIO_OFFSET, INVALID_PIO_OFFSET};
     PIOProgramType _pio_program_type[2] = {PIOProgramType::None, PIOProgramType::None};
     bool        _pio_ready[NUM_CHANNELS] = {};
     uint8_t     _dshot_rate = 0;
     uint8_t     _dshot_cycle = 0;
     uint32_t    _dshot_period_us = 1000;
+    uint64_t    _last_dshot_send_us[NUM_CHANNELS] = {};
     uint32_t    _telem_request_mask = 0;
     DshotEscType _dshot_esc_type = DSHOT_ESC_NONE;
     thread_t    *_rcout_thread_ctx = nullptr;
     virtual_timer_t _dshot_rate_timer;
+    bool        _serial_active = false;
+    uint8_t     _serial_chan = INVALID_CHANNEL;
+    uint32_t    _serial_chanmask = 0;
+    uint32_t    _serial_baudrate = 0;
 
     PWMConfig pwm_cfg[NUM_CHANNELS];
     PWMDriver *pwm_drivers[NUM_CHANNELS] = {};
@@ -84,10 +96,16 @@ private:
     static bool _uses_pio_mode(output_mode mode);
     static bool _is_dshot_mode(output_mode mode);
     static uint32_t _dshot_bitrate(output_mode mode);
+    uint32_t _dshot_pulse_time_us(uint8_t chan) const;
+    bool _can_send_dshot_pulse(uint8_t chan) const;
     uint32_t _dshot_channel_mask() const;
     void _signal_dshot_event(eventmask_t mask);
     static void dshot_update_tick(virtual_timer_t *vt, void *ctx);
     bool _uses_pio(uint8_t chan) const;
+    bool _serial_suspended(uint8_t chan) const;
+    bool _load_serial_program(PIO pio, uint8_t &offset);
+    bool _init_serial_sm(void);
+    void _release_serial_channel(uint8_t chan);
     bool _init_pio_channel(uint8_t chan);
     void _set_pin_mode(uint8_t chan);
 };
