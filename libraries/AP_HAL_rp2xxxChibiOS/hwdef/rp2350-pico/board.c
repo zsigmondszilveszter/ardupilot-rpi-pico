@@ -77,7 +77,21 @@ void __late_init(void) {
   __asm volatile ("dsb");
   __asm volatile ("isb");
   __asm volatile ("mrc p4,#0,r0,c0,c0,#1" : : : "r0");
+  /* Disable ARMv8-M stack-limit trapping for now. CrashCatcher's armv7m
+   * fault entry switches MSP to its own dedicated crash stack without
+   * updating MSPLIM, which would otherwise cause an immediate double-fault
+   * and lockup on RP2350 secure images. */
+  __asm volatile ("msr msplim, %0" : : "r" (0));
+  __asm volatile ("msr psplim, %0" : : "r" (0));
   halInit();
+#if AP_CRASHDUMP_ENABLED
+  /* Pre-resolve ROM flash API pointers after halInit() (OSAL is live) but
+   * before chSysInit() so crashes during RTOS startup are also catchable.
+   * The fault handler always re-resolves at crash time anyway, so this is
+   * an optimisation only — not required for correctness. */
+  extern void rp2xxx_crashdump_init(void);
+  rp2xxx_crashdump_init();
+#endif
   chSysInit();
 }
 

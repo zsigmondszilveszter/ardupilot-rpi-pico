@@ -20,16 +20,24 @@ __vectors_align__ = 256;
 /*
  * RP2040 memory setup.
  */
+/*
+ * Crash log region: 320 KB reserved at the end of XIP flash for the
+ * CrashCatcher binary dump (RP2040 has 264 KB of RAM to dump + overhead).
+ * 320 KB = 5 x 64 KB erase blocks, keeping erase time reasonable (~1 s).
+ */
+CRASH_LOG_LEN = 0x50000;
+
 MEMORY
 {
     flash0 (rx) : org = 0x00000000, len = 16k   /* ROM                  */
-    flash1 (rx) : org = 0x10000000, len = DEFINED(FLASH_LEN) ? FLASH_LEN : 2048k /* XIP */
+    flash1 (rx) : org = 0x10000000, len = (DEFINED(FLASH_LEN) ? FLASH_LEN : 2048k) - CRASH_LOG_LEN /* XIP */
     flash2 (rx) : org = 0x00000000, len = 0
     flash3 (rx) : org = 0x00000000, len = 0
     flash4 (rx) : org = 0x00000000, len = 0
     flash5 (rx) : org = 0x00000000, len = 0
     flash6 (rx) : org = 0x00000000, len = 0
     flash7 (rx) : org = 0x00000000, len = 0
+    crash_log (r) : org = 0x10000000 + (DEFINED(FLASH_LEN) ? FLASH_LEN : 2048k) - CRASH_LOG_LEN, len = CRASH_LOG_LEN
     ram0   (wx) : org = 0x20000000, len = 256k  /* SRAM0 striped        */
     ram1   (wx) : org = 0x00000000, len = 256k  /* SRAM0 non striped    */
     ram2   (wx) : org = 0x00000000, len = 0

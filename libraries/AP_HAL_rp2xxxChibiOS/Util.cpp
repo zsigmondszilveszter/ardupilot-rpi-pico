@@ -21,7 +21,6 @@
 #include <AP_Math/AP_Math.h>
 #include <AP_Common/ExpandingString.h>
 #include <AP_InternalError/AP_InternalError.h>
-
 #include "Util.h"
 
 #include "hwdef/common/rp2xxx_util.h"
@@ -151,6 +150,42 @@ bool Util::was_watchdog_reset() const
 {
     return (&WDGD1)->wdg->REASON;
 }
+
+#if AP_CRASHDUMP_ENABLED
+
+extern "C" {
+    uint32_t rp2xxx_crash_dump_addr(void);
+    uint32_t rp2xxx_crash_dump_max_size(void);
+    uint32_t rp2xxx_crash_dump_size(void);
+}
+
+size_t Util::last_crash_dump_size() const
+{
+    const uint32_t size = rp2xxx_crash_dump_size();
+    // 0x00000000 = never written; 0xFFFFFFFF = erased flash
+    if (size == 0U || size == 0xFFFFFFFFU) {
+        return 0;
+    }
+    if (size > rp2xxx_crash_dump_max_size()) {
+        return 0;
+    }
+    // Validate CrashCatcher "cC" signature at the start of the dump
+    const uint8_t *ptr = (const uint8_t *)rp2xxx_crash_dump_addr();
+    if (ptr[0] != 0x63U || ptr[1] != 0x43U) {
+        return 0;
+    }
+    return (size_t)size;
+}
+
+void *Util::last_crash_dump_ptr() const
+{
+    if (last_crash_dump_size() == 0) {
+        return nullptr;
+    }
+    return (void *)rp2xxx_crash_dump_addr();
+}
+
+#endif // AP_CRASHDUMP_ENABLED
 
 /**
    how much free memory do we have in bytes.

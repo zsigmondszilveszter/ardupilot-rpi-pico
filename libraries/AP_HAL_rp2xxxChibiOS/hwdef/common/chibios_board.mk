@@ -143,7 +143,13 @@ ifneq ($(CRASHCATCHER),)
 LIBCC_CSRC = $(CRASHCATCHER)/Core/src/CrashCatcher.c \
              $(HWDEF)/common/crashdump.c
 
+# RP2040 is Cortex-M0+ (ARMv6-M); RP2350 is Cortex-M33 (ARMv8-M, same
+# exception frame layout as ARMv7-M so the armv7m assembly file is used).
+ifeq ($(MCU),cortex-m0plus)
+LIBCC_ASMXSRC = $(CRASHCATCHER)/Core/src/CrashCatcher_armv6m.S
+else
 LIBCC_ASMXSRC = $(CRASHCATCHER)/Core/src/CrashCatcher_armv7m.S
+endif
 endif
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -228,7 +234,8 @@ CPPWARN = -Wall -Wextra -Wundef -Werror
 # List all user C define here, like -D_DEBUG=1
 UDEFS = $(ENV_UDEFS) $(FATFS_FLAGS) -DHAL_BOARD_NAME=\"$(HAL_BOARD_NAME)\" \
         -DHAL_MAX_STACK_FRAME_SIZE=$(HAL_MAX_STACK_FRAME_SIZE) \
-        -DCRT0_VTOR_INIT=1 -DCRT0_EXTRA_CORES_NUMBER=1 -DPICO_NO_FPGA_CHECK -DNDEBUG -DHAL_SDCARD_SPI_HOOK=TRUE
+        -DCRT0_VTOR_INIT=1 -DCRT0_EXTRA_CORES_NUMBER=1 -DPICO_NO_FPGA_CHECK -DNDEBUG -DHAL_SDCARD_SPI_HOOK=TRUE \
+        $(if $(CRASHCATCHER),-DAP_CRASHDUMP_ENABLED=1)
 
 ifeq ($(ENABLE_ASSERTS),yes)
  UDEFS += -DHAL_CHIBIOS_ENABLE_ASSERTS

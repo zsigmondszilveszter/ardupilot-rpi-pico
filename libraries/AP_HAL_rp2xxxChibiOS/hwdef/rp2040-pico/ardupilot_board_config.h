@@ -89,6 +89,11 @@
 #define AP_AIS_ENABLED                  0
 #define AP_SCRIPTING_ENABLED            0
 
+/* Enable CrashCatcher binary dump to the last 320 KB of XIP flash.
+ * The dump survives reset and can be analysed with:
+ *   Tools/debug/gdb_crashdump.sh <elf> <extracted_crash.bin> */
+#define AP_CRASHDUMP_ENABLED 1
+
 /*
  * RP2040 is treated as a minimal multicopter target. Strip optional sensors,
  * payload features, and niche modes first, while keeping the core GPS/EKF

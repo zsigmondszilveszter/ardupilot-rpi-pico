@@ -90,6 +90,11 @@
 #define AP_AIS_ENABLED                  0
 #define AP_SCRIPTING_ENABLED            0
 
+/* Enable CrashCatcher binary dump to the last 576 KB of XIP flash.
+ * The dump survives reset and can be analysed with:
+ *   Tools/debug/gdb_crashdump.sh <elf> <extracted_crash.bin> */
+#define AP_CRASHDUMP_ENABLED 1
+
 /*
  * Expose GP26/ADC0, GP27/ADC1, and GP28/ADC2.
  * Use logical analog pin IDs 0, 1, and 2 instead of raw GPIO numbers.

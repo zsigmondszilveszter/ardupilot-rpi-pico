@@ -135,7 +135,7 @@ def configureChibiOS(cfg):
     kw['features'] = to_list(kw.get('features', [])) + ['ch_ap_library']
 
     env.CH_ROOT = srcpath('modules/rp2xxxChibiOS')
-    # env.CC_ROOT = srcpath('modules/CrashDebug/CrashCatcher')
+    env.CC_ROOT = srcpath('modules/CrashDebug/CrashCatcher')
     env.AP_HAL_ROOT = srcpath('libraries/AP_HAL_rp2xxxChibiOS')
     env.BUILDDIR = bldpath('modules/rp2xxxChibiOS')
     env.BUILDROOT = bldpath('')
@@ -144,8 +144,9 @@ def configureChibiOS(cfg):
 
     # relative paths to pass to make, relative to directory that make is run from
     env.CH_ROOT_REL = os.path.relpath(env.CH_ROOT, env.BUILDROOT)
-    # env.CC_ROOT_REL = os.path.relpath(env.CC_ROOT, env.BUILDROOT)
+    env.CC_ROOT_REL = os.path.relpath(env.CC_ROOT, env.BUILDROOT)
     env.AP_HAL_REL = os.path.relpath(env.AP_HAL_ROOT, env.BUILDROOT)
+    env.ENABLE_CRASHDUMP = True
     env.BUILDDIR_REL = os.path.relpath(env.BUILDDIR, env.BUILDROOT)
 
     mk_custom = srcpath('libraries/AP_HAL_rp2xxxChibiOS/hwdef/%s/chibios_board.mk' % env.BOARD)
@@ -168,7 +169,7 @@ def pre_build(bld):
 
 
 def build(bld):
-    # build ChibiOS
+    # build ChibiOS (and CrashCatcher when ENABLE_CRASHDUMP)
     buildChibiOS(bld)
 
     if bld.env.RP_MCU == 'rp2040':
@@ -199,12 +200,24 @@ def buildChibiOS(bld):
     common_src += bld.path.ant_glob('modules/rp2xxxChibiOS/os/hal/**/*.mk')
 
     if bld.env.ENABLE_CRASHDUMP:
-        # TODO(szilveszter)
-        pass
+        # Include CrashCatcher sources as tracked dependencies so waf
+        # rebuilds the library when they change.
+        common_src += bld.path.ant_glob('modules/CrashDebug/CrashCatcher/**/*.[chS]')
+        ch_task = bld(
+            # build libch.a + libcc.a from ChibiOS and CrashCatcher sources
+            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' "
+                 "CRASHCATCHER='${CC_ROOT_REL}' "
+                 "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${HAL_MAX_STACK_FRAME_SIZE} "
+                 "'${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
+            group='dynamic_sources',
+            source=common_src,
+            target=[bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/libch.a'),
+                    bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/libcc.a')]
+        )
     else:
         ch_task = bld(
             # build libch.a from ChibiOS sources and hwdef.h
-            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' " + 
+            rule="BUILDDIR='${BUILDDIR_REL}' CHIBIOS='${CH_ROOT_REL}' " +
                 "AP_HAL=${AP_HAL_REL} ${CHIBIOS_BUILD_FLAGS} ${CHIBIOS_BOARD_NAME} ${HAL_MAX_STACK_FRAME_SIZE} " +
                 "'${MAKE}' -j%u lib -f '${BOARD_MK}'" % bld.options.jobs,
             group='dynamic_sources',
@@ -212,7 +225,6 @@ def buildChibiOS(bld):
             target=bld.bldnode.find_or_declare('modules/rp2xxxChibiOS/libch.a')
         )
 
-    
     ch_task.name = "ChibiOS_lib"
     DSP_LIBS = {
         'rp2350' : 'libarm_cortexM33lf_math.a',

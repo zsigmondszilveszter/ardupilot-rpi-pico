@@ -30,6 +30,11 @@ public:
     // return true if the reason for the reboot was a watchdog reset
     bool was_watchdog_reset() const override;
 
+#if AP_CRASHDUMP_ENABLED
+    size_t last_crash_dump_size() const override;
+    void*  last_crash_dump_ptr()  const override;
+#endif
+
     /*
       set HW RTC in UTC microseconds
      */

@@ -70,6 +70,14 @@ void __late_init(void) {
   __aeabi_float_init();
   __aeabi_double_init();
   halInit();
+#if AP_CRASHDUMP_ENABLED
+  /* Pre-resolve ROM flash API pointers after halInit() (OSAL is live) but
+   * before chSysInit() so crashes during RTOS startup are also catchable.
+   * The fault handler always re-resolves at crash time anyway, so this is
+   * an optimisation only — not required for correctness. */
+  extern void rp2xxx_crashdump_init(void);
+  rp2xxx_crashdump_init();
+#endif
   chSysInit();
 }
 

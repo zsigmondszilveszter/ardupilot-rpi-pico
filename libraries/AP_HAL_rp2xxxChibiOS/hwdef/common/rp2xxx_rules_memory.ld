@@ -291,4 +291,17 @@ SECTIONS
         . = ORIGIN(HEAP_RAM) + LENGTH(HEAP_RAM);
         __heap_end__ = .;
     } > HEAP_RAM
+
+    /*
+     * Crash log region at the end of XIP flash. Marked NOLOAD so it is
+     * never zeroed or initialised at startup — it must survive a reset.
+     * __crash_log_base__ and __crash_log_end__ are used by crashdump.c
+     * and Util::last_crash_dump_ptr() / last_crash_dump_size().
+     */
+    .crash_log (NOLOAD) :
+    {
+        __crash_log_base__ = .;
+        . = ORIGIN(crash_log) + LENGTH(crash_log);
+        __crash_log_end__ = .;
+    } > crash_log
 }
