@@ -84,6 +84,19 @@ Tools/debug/gdb_crashdump.sh <path/to/arducopter.elf> crash_dump.trimmed.bin
 This starts `arm-none-eabi-gdb` with CrashDebug as a synthetic GDB remote target.
 The MCU does not need to be connected.
 
+### Step 4 — Clear the stored dump after extraction
+
+If you want the `PreArm: CrashDump data detected` warning to disappear on the
+next boot, erase only the reserved crash region in BOOTSEL mode:
+
+```bash
+# RP2040
+picotool erase --range 0x101B0000 0x10200000
+
+# RP2350
+picotool erase --range 0x10370000 0x10400000
+```
+
 #### 3a — Find where the crash happened
 
 The first thing to do is get a backtrace:
