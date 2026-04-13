@@ -98,6 +98,13 @@ uint pio_add_program(PIO pio, const pio_program_t *program) {
     return (uint)offset;
 }
 
+void pio_remove_program(PIO pio, const pio_program_t *program, uint offset) {
+    uint32_t program_mask = (1u << program->length) - 1;
+    osalSysLock();
+    _used_instruction_space[pio_get_index(pio)] &= ~(program_mask << offset);
+    osalSysUnlock();
+}
+
 void rc_rx_uart_pio_program_init(PIO pio, uint sm, uint offset, uint pin, uint baud, RcProtocol protocol) {
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
 

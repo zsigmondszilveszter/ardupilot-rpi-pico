@@ -213,6 +213,10 @@
 #define HAL_SUPPORT_RCOUT_SERIAL    1
 #endif
 
+#ifndef HAL_WITH_BIDIR_DSHOT
+#define HAL_WITH_BIDIR_DSHOT
+#endif
+
 #ifndef UDID_START
 extern const uint8_t rp2xxx_udid[12];
 #define UDID_START rp2xxx_udid

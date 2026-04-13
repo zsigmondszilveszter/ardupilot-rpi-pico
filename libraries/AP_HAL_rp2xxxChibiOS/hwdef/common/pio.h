@@ -527,6 +527,8 @@ void pio_sm_init(PIO pio, uint sm, uint initial_pc, const pio_sm_config *config)
 
 uint pio_add_program(PIO pio, const pio_program_t *program);
 
+void pio_remove_program(PIO pio, const pio_program_t *program, uint offset);
+
 void rc_rx_uart_pio_program_init(PIO pio, uint sm, uint offset, uint pin, uint baud, RcProtocol protocol);
 
 #ifdef __cplusplus
