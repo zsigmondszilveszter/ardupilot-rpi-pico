@@ -232,9 +232,6 @@ void Scheduler::reboot(bool hold_in_bootloader)
     // disarm motors to ensure they are off during a bootloader upload
     // hal.rcout->force_safety_on();
 
-    // disable all interrupt sources
-    port_disable();
-
 #if HAL_LOGGING_ENABLED
     //stop logging
     if (AP_Logger::get_singleton()) {
@@ -245,7 +242,9 @@ void Scheduler::reboot(bool hold_in_bootloader)
     AP::FS().unmount();
 #endif
 
-    // disable all interrupt sources
+    // keep interrupts running until storage teardown completes. The RP2xxx
+    // SD/MMC path waits for SPI DMA completion and can deadlock if IRQs are
+    // masked before StopLogging()/unmount() finish.
     port_disable();
 
     // reboot
