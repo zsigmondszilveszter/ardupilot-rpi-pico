@@ -29,6 +29,8 @@ public:
 
     // return true if the reason for the reboot was a watchdog reset
     bool was_watchdog_reset() const override;
+    void watchdog_save_persistent_data();
+    bool watchdog_load_persistent_data(AP_HAL::Util::PersistentData &pd) const;
 
 #if AP_CRASHDUMP_ENABLED
     size_t last_crash_dump_size() const override;

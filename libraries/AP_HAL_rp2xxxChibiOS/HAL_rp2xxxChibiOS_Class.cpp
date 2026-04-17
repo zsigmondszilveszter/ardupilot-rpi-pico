@@ -150,6 +150,8 @@ void HAL_Rp2xxxChibiOS::run(int argc, char* const argv[], Callbacks* callbacks) 
         }
     
         if (hal.util->was_watchdog_reset()) {
+            auto *rp_util = static_cast<Rp2xxxChibiOS::Util *>(hal.util);
+            rp_util->watchdog_load_persistent_data(rp_util->last_persistent_data);
             INTERNAL_ERROR(AP_InternalError::error_t::watchdog_reset);
         }
     #endif // DISABLE_WATCHDOG

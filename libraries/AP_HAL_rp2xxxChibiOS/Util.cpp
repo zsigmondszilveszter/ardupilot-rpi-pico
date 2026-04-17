@@ -27,6 +27,53 @@
 
 using namespace Rp2xxxChibiOS;
 
+namespace {
+
+constexpr uint32_t RP2XXX_WDOG_DATA_MAGIC = 0x41525744U; // "ARWD"
+constexpr uint8_t rp2xxx_wdog_scratch_words[] = {1, 3, 4, 5, 6, 7};
+
+/*
+  RP2xxx watchdog scratch storage is only 32 bytes total, so we keep a
+  reduced snapshot in 6 words.
+ */
+struct PACKED Rp2xxxWatchdogPersistentData {
+    uint32_t magic;
+    int8_t scheduler_task;
+    uint8_t fault_thd_prio;
+    uint8_t fault_type;
+    uint8_t reserved;
+    uint32_t internal_errors;
+    uint16_t internal_error_count;
+    uint16_t internal_error_last_line;
+    uint16_t last_mavlink_msgid;
+    uint16_t last_mavlink_cmd;
+    uint16_t semaphore_line;
+    uint16_t fault_line;
+};
+
+static_assert(sizeof(Rp2xxxWatchdogPersistentData) == sizeof(rp2xxx_wdog_scratch_words) * sizeof(uint32_t),
+              "RP2xxx watchdog snapshot must fit watchdog scratch words");
+
+void rp2xxx_watchdog_write_words(const Rp2xxxWatchdogPersistentData &src)
+{
+    uint32_t words[ARRAY_SIZE(rp2xxx_wdog_scratch_words)];
+    memcpy(words, &src, sizeof(words));
+    for (uint8_t i = 0; i < ARRAY_SIZE(rp2xxx_wdog_scratch_words); i++) {
+        WDGD1.wdg->SCRATCH[rp2xxx_wdog_scratch_words[i]] = words[i];
+    }
+}
+
+void rp2xxx_watchdog_read_words(Rp2xxxWatchdogPersistentData &dst)
+{
+    uint32_t words[ARRAY_SIZE(rp2xxx_wdog_scratch_words)];
+    for (uint8_t i = 0; i < ARRAY_SIZE(rp2xxx_wdog_scratch_words); i++) {
+        words[i] = WDGD1.wdg->SCRATCH[rp2xxx_wdog_scratch_words[i]];
+    }
+    memcpy(&dst, words, sizeof(words));
+}
+
+} // namespace
+
 const uint8_t rp2xxx_udid[12] = {};
 
 extern "C" {
@@ -149,6 +196,48 @@ uint64_t Util::get_hw_rtc() const
 bool Util::was_watchdog_reset() const
 {
     return (&WDGD1)->wdg->REASON;
+}
+
+void Util::watchdog_save_persistent_data()
+{
+    const AP_HAL::Util::PersistentData &pd = persistent_data;
+    const Rp2xxxWatchdogPersistentData snapshot{
+        .magic                    = RP2XXX_WDOG_DATA_MAGIC,
+        .scheduler_task           = pd.scheduler_task,
+        .fault_thd_prio           = pd.fault_thd_prio,
+        .fault_type               = pd.fault_type,
+        .reserved                 = 0,
+        .internal_errors          = pd.internal_errors,
+        .internal_error_count     = pd.internal_error_count,
+        .internal_error_last_line = pd.internal_error_last_line,
+        .last_mavlink_msgid       = pd.last_mavlink_msgid,
+        .last_mavlink_cmd         = pd.last_mavlink_cmd,
+        .semaphore_line           = pd.semaphore_line,
+        .fault_line               = pd.fault_line,
+    };
+    rp2xxx_watchdog_write_words(snapshot);
+}
+
+bool Util::watchdog_load_persistent_data(AP_HAL::Util::PersistentData &pd) const
+{
+    Rp2xxxWatchdogPersistentData snapshot{};
+    rp2xxx_watchdog_read_words(snapshot);
+    if (snapshot.magic != RP2XXX_WDOG_DATA_MAGIC) {
+        return false;
+    }
+
+    memset(&pd, 0, sizeof(pd));
+    pd.scheduler_task = snapshot.scheduler_task;
+    pd.fault_thd_prio = snapshot.fault_thd_prio;
+    pd.fault_type = snapshot.fault_type;
+    pd.internal_errors = snapshot.internal_errors;
+    pd.internal_error_count = snapshot.internal_error_count;
+    pd.internal_error_last_line = snapshot.internal_error_last_line;
+    pd.last_mavlink_msgid = snapshot.last_mavlink_msgid;
+    pd.last_mavlink_cmd = snapshot.last_mavlink_cmd;
+    pd.semaphore_line = snapshot.semaphore_line;
+    pd.fault_line = snapshot.fault_line;
+    return true;
 }
 
 #if AP_CRASHDUMP_ENABLED

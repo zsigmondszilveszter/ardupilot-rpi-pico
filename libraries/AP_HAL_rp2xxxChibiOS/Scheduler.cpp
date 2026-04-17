@@ -20,6 +20,7 @@
 #include <AP_HAL_rp2xxxChibiOS/RCInput.h>
 #include <AP_HAL_rp2xxxChibiOS/AnalogIn.h>
 #include <AP_HAL_rp2xxxChibiOS/RCOutput.h>
+#include <AP_HAL_rp2xxxChibiOS/Util.h>
 #include <AP_InternalError/AP_InternalError.h>
 
 #include <hal.h>
@@ -385,16 +386,15 @@ void Scheduler::_monitor_thread(void *arg)
     while (!sched->_initialized) {
         sched->delay(100);
     }
-    // bool using_watchdog = AP_BoardConfig::watchdog_enabled();
-//#if HAL_LOGGING_ENABLED
-//    uint8_t log_wd_counter = 0;
-//#endif
-
+    bool using_watchdog = AP_BoardConfig::watchdog_enabled();
+#if HAL_LOGGING_ENABLED
+    uint8_t log_wd_counter = 0;
+#endif
     while (true) {
         sched->delay(100);
-        // if (using_watchdog) {
-        //     stm32_watchdog_save((uint32_t *)&hal.util->persistent_data, (sizeof(hal.util->persistent_data)+3)/4);
-        // }
+        if (using_watchdog) {
+            static_cast<Rp2xxxChibiOS::Util *>(hal.util)->watchdog_save_persistent_data();
+        }
 
         // if running memory guard then check all allocations
         malloc_check(nullptr);
@@ -430,33 +430,33 @@ void Scheduler::_monitor_thread(void *arg)
             INTERNAL_ERROR(AP_InternalError::error_t::main_loop_stuck);
         }
 
-//#if HAL_LOGGING_ENABLED
-//    if (log_wd_counter++ == 10 && hal.util->was_watchdog_reset()) {
-//        log_wd_counter = 0;
-//        // log watchdog message once a second
-//        const AP_HAL::Util::PersistentData &pd = hal.util->last_persistent_data;
-//        struct log_WDOG wdog{
-//            LOG_PACKET_HEADER_INIT(LOG_WDOG_MSG),
-//            time_us                  : AP_HAL::micros64(),
-//            scheduler_task           : pd.scheduler_task,
-//            internal_errors          : pd.internal_errors,
-//            internal_error_count     : pd.internal_error_count,
-//            internal_error_last_line : pd.internal_error_last_line,
-//            last_mavlink_msgid       : pd.last_mavlink_msgid,
-//            last_mavlink_cmd         : pd.last_mavlink_cmd,
-//            semaphore_line           : pd.semaphore_line,
-//            fault_line               : pd.fault_line,
-//            fault_type               : pd.fault_type,
-//            fault_addr               : pd.fault_addr,
-//            fault_thd_prio           : pd.fault_thd_prio,
-//            fault_icsr               : pd.fault_icsr,
-//            fault_lr                 : pd.fault_lr
-//        };
-//        memcpy(wdog.thread_name4, pd.thread_name4, ARRAY_SIZE(wdog.thread_name4));
-//
-//        AP::logger().WriteCriticalBlock(&wdog, sizeof(wdog));
-//    }
-//#endif // HAL_LOGGING_ENABLED
+#if HAL_LOGGING_ENABLED
+        if (log_wd_counter++ == 10 && hal.util->was_watchdog_reset()) {
+            log_wd_counter = 0;
+            // RP2xxx keeps a reduced watchdog snapshot in scratch registers.
+            const AP_HAL::Util::PersistentData &pd = hal.util->last_persistent_data;
+            struct log_WDOG wdog{
+                LOG_PACKET_HEADER_INIT(LOG_WDOG_MSG),
+                time_us                  : AP_HAL::micros64(),
+                scheduler_task           : pd.scheduler_task,
+                internal_errors          : pd.internal_errors,
+                internal_error_count     : pd.internal_error_count,
+                internal_error_last_line : pd.internal_error_last_line,
+                last_mavlink_msgid       : pd.last_mavlink_msgid,
+                last_mavlink_cmd         : pd.last_mavlink_cmd,
+                semaphore_line           : pd.semaphore_line,
+                fault_line               : pd.fault_line,
+                fault_type               : pd.fault_type,
+                fault_addr               : pd.fault_addr,
+                fault_thd_prio           : pd.fault_thd_prio,
+                fault_icsr               : pd.fault_icsr,
+                fault_lr                 : pd.fault_lr
+            };
+            memcpy(wdog.thread_name4, pd.thread_name4, ARRAY_SIZE(wdog.thread_name4));
+
+            AP::logger().WriteCriticalBlock(&wdog, sizeof(wdog));
+        }
+#endif // HAL_LOGGING_ENABLED
 
 #ifndef IOMCU_FW
     // setup GPIO interrupt quotas
