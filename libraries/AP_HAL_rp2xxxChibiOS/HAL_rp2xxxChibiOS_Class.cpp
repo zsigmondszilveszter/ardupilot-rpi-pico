@@ -27,7 +27,7 @@ using namespace Rp2xxxChibiOS;
 static Rp2xxxChibiOS::UsbSerialDriver usb_mavlink_serial(&SDU1);
 static Rp2xxxChibiOS::UsbSerialDriver usb_debug_console(&SDU2);
 static Rp2xxxChibiOS::UARTDriver uartADriver(0); // UART 0
-//static Rp2xxxChibiOS::UARTDriver uartBDriver(1); // UART 1
+static Rp2xxxChibiOS::UARTDriver uartBDriver(1); // UART 1
 static I2CDeviceManager i2cDeviceManager;
 static SPIDeviceManager spiDeviceManager;
 static AnalogIn analogIn;
@@ -46,7 +46,7 @@ static Rp2xxxChibiOS::DSP dspDriver;
 HAL_Rp2xxxChibiOS::HAL_Rp2xxxChibiOS() :
     AP_HAL::HAL(
         &usb_mavlink_serial,    /* serial(0) */
-        nullptr, //&uartBDriver,
+        &uartBDriver,
         nullptr, //&uartCDriver,
         &uartADriver,            /* no uartD */
         nullptr,            /* no uartE */

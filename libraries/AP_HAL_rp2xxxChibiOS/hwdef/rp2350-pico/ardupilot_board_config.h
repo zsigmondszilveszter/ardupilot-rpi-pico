@@ -36,8 +36,8 @@
 #define RP2xxx_RC_OUT4                  11U
 #define RP2xxx_RC_OUT5                  22U
 
-#define HAL_GPIO_A_LED_PIN              25U
-#define HAL_GPIO_B_LED_PIN              6U
+#define HAL_GPIO_A_LED_PIN              6U
+#define HAL_GPIO_B_LED_PIN              25U
 #define HAL_GPIO_C_LED_PIN              9U
 #define HAL_GPIO_LED_ON                 1
 #define AP_NOTIFY_GPIO_LED_3_ENABLED    1
