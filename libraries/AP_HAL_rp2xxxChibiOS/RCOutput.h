@@ -43,6 +43,7 @@ public:
     void     rcout_thread();
 private:
     static const eventmask_t EVT_PWM_SEND = EVENT_MASK(11);
+    static const eventmask_t EVT_PWM_SYNTHETIC_SEND = EVENT_MASK(12);
 
     // Maximum logical RC outputs exposed by the board configuration.
     static constexpr uint8_t NUM_CHANNELS = RP2xxx_MAX_RC_OUTPUTS;
@@ -81,10 +82,13 @@ private:
     uint8_t     _serial_io_offset[2] = {INVALID_PIO_OFFSET, INVALID_PIO_OFFSET};
     bool        _pio_ready[NUM_CHANNELS] = {};
     uint32_t    _dshot_period_us = 1000;
+    uint8_t     _dshot_rate = 0;
+    uint8_t     _dshot_cycle = 0;
     uint64_t    _last_dshot_send_us[NUM_CHANNELS] = {};
     uint32_t    _telem_request_mask = 0;
     DshotEscType _dshot_esc_type = DSHOT_ESC_NONE;
     thread_t    *_rcout_thread_ctx = nullptr;
+    virtual_timer_t _dshot_rate_timer;
     bool        _serial_active = false;
     uint8_t     _serial_chan = INVALID_CHANNEL;
     uint32_t    _serial_chanmask = 0;
@@ -118,6 +122,7 @@ private:
     bool _can_send_dshot_pulse(uint8_t chan) const;
     uint32_t _dshot_channel_mask() const;
     void _signal_dshot_event(eventmask_t mask);
+    static void _dshot_update_tick(virtual_timer_t *vt, void *p);
     static const pio_program_t *_output_program_for_type(PIOProgramType program_type);
     bool _uses_pio(uint8_t chan) const;
     bool _serial_suspended(uint8_t chan) const;
