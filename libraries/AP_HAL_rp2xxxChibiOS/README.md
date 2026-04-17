@@ -175,6 +175,45 @@ Common CFSR patterns:
 RP2040 (Cortex-M0+) escalates all faults directly to HardFault and does not have
 CFSR/BFAR, so only `pc` / `lr` / `bt` are available there.
 
+#### 3c.1 — Catch HardFault at the first instruction with a live debugger
+
+If you are connected with GDB and want to stop before CrashCatcher starts
+shuffling registers and stacks, set the breakpoint on the first instruction of
+`HardFault_Handler`, not just on the symbol name.
+
+First disassemble the handler:
+
+```gdb
+(gdb) disas HardFault_Handler
+```
+
+For RP2350 builds the output looks like this:
+
+```gdb
+0x10024ac0 <+0>:  mrs   r3, PSR
+0x10024ac4 <+4>:  mrs   r2, PSP
+0x10024ac8 <+8>:  mrs   r1, MSP
+0x10024acc <+12>: ldr.w sp, [pc, #20]
+...
+```
+
+Then set a hardware breakpoint on the exact first address:
+
+```gdb
+(gdb) hbreak *0x10024ac0
+```
+
+Do not rely on `break HardFault_Handler` alone. On this handler GDB may place
+the breakpoint later in the function, for example at `HardFault_Handler+16`,
+after the handler has already started modifying state.
+
+Once it stops there, inspect the raw entry context first:
+
+```gdb
+(gdb) info registers
+(gdb) x/8wx $sp
+```
+
 #### 3d — Check for stack overflow
 
 A common crash cause is a stack overflow. Check whether `sp` has gone below the

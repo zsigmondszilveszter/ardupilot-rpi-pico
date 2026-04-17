@@ -60,12 +60,6 @@
 #error "Neither RP2040 nor RP2350 is defined — check your board.h include path"
 #endif
 
-#define FAULT_BREADCRUMB_MAGIC     0x43524348U /* "CRCH" */
-#define FAULT_STAGE_DUMP_START     0x44535441U /* "DSTA" */
-#define FAULT_STAGE_API_READY      0x44415049U /* "DAPI" */
-#define FAULT_STAGE_REGION_ERASED  0x44455253U /* "DERS" */
-#define FAULT_STAGE_DUMP_END       0x44454E44U /* "DEND" */
-
 /* __FASTRAMFUNC__ places code in .fastramfunc which is copied to SRAM.
  * Defined in AP_HAL/board/rp2xxxchibios.h for C++ files; we define it
  * here for this plain-C translation unit if not already available. */
@@ -99,13 +93,6 @@ static uint8_t  s_page_buf[FLASH_PAGE_SIZE];
 static uint32_t s_page_buf_used;    /* bytes currently buffered          */
 static uint32_t s_write_off;        /* byte offset from crash_log base   */
 static uint32_t s_total_written;    /* total bytes given to DumpMemory   */
-
-__FASTRAMFUNC__
-static void set_fault_stage(uint32_t stage)
-{
-    WATCHDOG->SCRATCH[0] = FAULT_BREADCRUMB_MAGIC;
-    WATCHDOG->SCRATCH[2] = stage;
-}
 
 #if defined(RP2350) || defined(RP2040)
 __FASTRAMFUNC__
@@ -274,8 +261,6 @@ void CrashCatcher_DumpStart(const CrashCatcherInfo *pInfo)
     s_write_off     = 0;
     s_total_written = 0;
     s_is_bkpt_fault = pInfo != NULL && pInfo->isBKPT;
-    set_fault_stage(FAULT_STAGE_DUMP_START);
-
     /*
      * Always re-resolve the ROM flash API here, even if rp2xxx_crashdump_init()
      * ran at boot. A stack overflow can corrupt the cached s_flash_api struct
@@ -287,10 +272,8 @@ void CrashCatcher_DumpStart(const CrashCatcherInfo *pInfo)
     if (!s_flash_api_ready) {
         return;
     }
-    set_fault_stage(FAULT_STAGE_API_READY);
     park_other_core_for_crashdump();
     erase_crash_region();
-    set_fault_stage(FAULT_STAGE_REGION_ERASED);
 }
 
 __FASTRAMFUNC__
@@ -349,8 +332,6 @@ CrashCatcherReturnCodes CrashCatcher_DumpEnd(void)
     if (!s_flash_api_ready) {
         return CRASH_CATCHER_EXIT;
     }
-    set_fault_stage(FAULT_STAGE_DUMP_END);
-
     /* Flush any partial page, padding with 0xFF. */
     flush_page(1);
 
