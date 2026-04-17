@@ -51,6 +51,49 @@ static const struct SPIDriverInfo {
     uint8_t dma_channel_tx;
 } spi_devices[] = { HAL_SPI_BUS_LIST };
 
+/*
+  Abort an in-flight RP2xxx SPI DMA transaction without leaving a late DMA IRQ
+  able to run after the driver has been torn down. The generic ChibiOS
+  spiAbort() API is compiled out for the RP SPI v1 LLD.
+ */
+static void rp2xxx_spi_abort(SPIDriver *spip)
+{
+    osalSysLock();
+
+    if (spip->dmarx != nullptr) {
+        dmaChannelDisableInterruptX(spip->dmarx);
+        dmaChannelDisableX(spip->dmarx);
+        dmaChannelGetAndClearInterrupts(spip->dmarx);
+        dmaChannelFreeI(spip->dmarx);
+        spip->dmarx = nullptr;
+    }
+    if (spip->dmatx != nullptr) {
+        dmaChannelDisableInterruptX(spip->dmatx);
+        dmaChannelDisableX(spip->dmatx);
+        dmaChannelGetAndClearInterrupts(spip->dmatx);
+        dmaChannelFreeI(spip->dmatx);
+        spip->dmatx = nullptr;
+    }
+
+    if (spip->spi != nullptr) {
+        spip->spi->SSPDMACR = 0U;
+        spip->spi->SSPCR1 = 0U;
+        if (spip->spi == SPI0) {
+            rp_peripheral_reset(RESETS_ALLREG_SPI0);
+        } else if (spip->spi == SPI1) {
+            rp_peripheral_reset(RESETS_ALLREG_SPI1);
+        }
+    }
+
+#if SPI_USE_WAIT == TRUE
+    spip->thread = nullptr;
+#endif
+    spip->config = nullptr;
+    spip->state = SPI_STOP;
+
+    osalSysUnlock();
+}
+
 // device list comes from hwdef.dat
 Rp2xxxChibiOS::SPIDesc SPIDeviceManager::device_table[] = { HAL_SPI_DEVICE_LIST };
 
@@ -177,7 +220,8 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
         if (!hal.scheduler->in_expected_delay()) {
             INTERNAL_ERROR(AP_InternalError::error_t::spi_fail);
         }
-        spiStop(spi_devices[device_desc.bus].driver);
+        rp2xxx_spi_abort(spi_devices[device_desc.bus].driver);
+        bus.spi_started = false;
     }
     // bus.bouncebuffer_finish(send, recv, len);
 #endif
@@ -202,8 +246,8 @@ bool SPIDevice::clock_pulse(uint32_t n)
         msg = osalThreadSuspendTimeoutS(&spi_devices[device_desc.bus].driver->thread, TIME_US2I(timeout_us));
         osalSysUnlock();
         if (msg == MSG_TIMEOUT) {
-            // spiAbort(spi_devices[device_desc.bus].driver);
-            spiStop(spi_devices[device_desc.bus].driver);
+            rp2xxx_spi_abort(spi_devices[device_desc.bus].driver);
+            bus.spi_started = false;
         }
         acquire_bus(false, true);
         bus.semaphore.give();
@@ -216,8 +260,8 @@ bool SPIDevice::clock_pulse(uint32_t n)
         msg = osalThreadSuspendTimeoutS(&spi_devices[device_desc.bus].driver->thread, TIME_US2I(timeout_us));
         osalSysUnlock();
         if (msg == MSG_TIMEOUT) {
-            // spiAbort(spi_devices[device_desc.bus].driver);
-            spiStop(spi_devices[device_desc.bus].driver);
+            rp2xxx_spi_abort(spi_devices[device_desc.bus].driver);
+            bus.spi_started = false;
         }
     }
     return msg != MSG_TIMEOUT;
@@ -441,9 +485,8 @@ void SPIDevice::test_clock_freq(void)
         msg_t msg = osalThreadSuspendTimeoutS(&spi_devices[i].driver->thread, chTimeMS2I(100));
         chSysUnlock();
         if (msg == MSG_TIMEOUT) {
-            // spiAbort(spi_devices[i].driver);
             DEV_PRINTF("SPI[%u] FAIL %p %p\n", spi_devices[i].busid, buf1, buf2);
-            spiStop(spi_devices[i].driver);
+            rp2xxx_spi_abort(spi_devices[i].driver);
             spiReleaseBus(spi_devices[i].driver);
             continue;
         }

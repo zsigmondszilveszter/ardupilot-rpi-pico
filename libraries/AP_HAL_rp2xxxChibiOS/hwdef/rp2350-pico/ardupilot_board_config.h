@@ -31,9 +31,9 @@
 #define RP2xxx_MAX_RC_OUTPUTS           6U
 #define RP2xxx_RC_OUT0                  8U
 #define RP2xxx_RC_OUT1                  10U
-#define RP2xxx_RC_OUT2                  20U
-#define RP2xxx_RC_OUT3                  21U
-#define RP2xxx_RC_OUT4                  11U
+#define RP2xxx_RC_OUT2                  11U
+#define RP2xxx_RC_OUT3                  20U
+#define RP2xxx_RC_OUT4                  21U
 #define RP2xxx_RC_OUT5                  22U
 
 #define HAL_GPIO_A_LED_PIN              6U
@@ -73,7 +73,7 @@
 #define HAL_SPI_DEVICE_SDCARD SPIDesc("sdcard", SPI_BUS_0, 3, \
     RP2xxx_SPI0_MISO_GPIO_PIN, RP2xxx_SPI0_MOSI_GPIO_PIN, \
     RP2xxx_SPI0_SCK_GPIO_PIN, RP2xxx_SPI_CS_FOR_SDCARD, \
-    0, 400*SPI_KHZ, 25*SPI_MHZ)
+    0, 400*SPI_KHZ, 15*SPI_MHZ)
 #define HAL_SPI_DEVICE_LIST HAL_SPI_DEVICE_MPU9250,HAL_SPI_DEVICE_SDCARD
 
 #define HAL_STORAGE_SIZE                8192 // this is RAM mapped, set it carefully as it consumes RAM 
