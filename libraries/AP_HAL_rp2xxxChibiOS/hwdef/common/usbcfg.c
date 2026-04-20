@@ -58,8 +58,8 @@ static const uint8_t vcom_device_descriptor_data[] = {
     0x02,                                   /* bDeviceSubClass (common).    */
     0x01,                                   /* bDeviceProtocol (IAD).       */
     USB_DATA_SIZE,                          /* bMaxPacketSize.              */
-    0x2E8A,                                 /* idVendor.                    */
-    0x0003,                                 /* idProduct.                   */
+    0x1209,                                 /* idVendor.                    */
+    0x5740,                                 /* idProduct.                   */
     0x0200,                                 /* bcdDevice.                   */
     1,                                      /* iManufacturer.               */
     2,                                      /* iProduct.                    */
